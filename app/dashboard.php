@@ -27,7 +27,7 @@ if (file_exists($meetings_file)) {
 // Load users for admin
 $users = [];
 if ($role === 'Admin') {
-    $users_file = 'users.json';
+    $users_file = '../db/users.json';
     if (file_exists($users_file)) {
         $users = json_decode(file_get_contents($users_file), true);
     }
