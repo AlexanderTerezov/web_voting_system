@@ -1,0 +1,42 @@
+[
+    {
+        "name": "FSS",
+        "quorum": 2,
+        "participants": [
+            {
+                "username": "Admin",
+                "role": "member"
+            },
+            {
+                "username": "swordopepe",
+                "role": "member"
+            },
+            {
+                "username": "test",
+                "role": "secretary"
+            }
+        ],
+        "created_at": "2026-01-26 20:28:58",
+        "created_by": "Admin"
+    },
+    {
+        "name": "FMI_CRINGE_BAD",
+        "quorum": 2,
+        "participants": [
+            {
+                "username": "Admin",
+                "role": "secretary"
+            },
+            {
+                "username": "swordopepe",
+                "role": "secretary"
+            },
+            {
+                "username": "test",
+                "role": "member"
+            }
+        ],
+        "created_at": "2026-01-26 20:46:03",
+        "created_by": "Admin"
+    }
+]
