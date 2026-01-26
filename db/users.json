@@ -19,5 +19,12 @@
         "password": "$2y$12$NxGFfE.5GLFVgFVdM3EHUOq6dedSmhkKs7.1nk2Vhpigc9kq8APRe",
         "role": "User",
         "created_at": "2026-01-26 20:03:23"
+    },
+    {
+        "username": "Alex",
+        "email": "alex@gmail.com",
+        "password": "$2y$12$ny7BM9KKyEdANWJQA8RN8OzT1l\/fZNf9kB.\/o1CfcIhwJqBRcCXcy",
+        "role": "User",
+        "created_at": "2026-01-26 21:05:51"
     }
 ]

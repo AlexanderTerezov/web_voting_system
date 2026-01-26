@@ -17,30 +17,73 @@ if (file_exists($agencies_file)) {
     $agencies = json_decode(file_get_contents($agencies_file), true);
 }
 
+// Load meetings
+$meetings_file = 'meetings.json';
+$meetings = [];
+if (file_exists($meetings_file)) {
+    $meetings = json_decode(file_get_contents($meetings_file), true);
+}
+
 // Load users for admin
 $users = [];
 if ($role === 'Admin') {
-    $users_file = '../db/users.json';
+    $users_file = 'users.json';
     if (file_exists($users_file)) {
         $users = json_decode(file_get_contents($users_file), true);
     }
 }
 
-// Filter agencies for normal users
+// Filter agencies for normal users and check if they are secretary
 $userAgencies = [];
+$isSecretaryInAny = false;
 if ($role !== 'Admin') {
-    foreach ($agencies as $agency) {
+    foreach ($agencies as $index => $agency) {
         foreach ($agency['participants'] as $participant) {
             if ($participant['username'] === $username) {
                 $userAgencies[] = [
                     'agency' => $agency,
-                    'role' => $participant['role']
+                    'role' => $participant['role'],
+                    'index' => $index
                 ];
+                if ($participant['role'] === 'secretary') {
+                    $isSecretaryInAny = true;
+                }
                 break;
             }
         }
     }
 }
+
+// Get upcoming meetings for user
+$upcomingMeetings = [];
+$now = new DateTime();
+foreach ($meetings as $meeting) {
+    $meetingDate = new DateTime($meeting['date'] . ' ' . $meeting['time']);
+    
+    // Check if user is part of this agency
+    $isParticipant = false;
+    foreach ($agencies as $agency) {
+        if ($agency['name'] === $meeting['agency_name']) {
+            foreach ($agency['participants'] as $participant) {
+                if ($participant['username'] === $username || $role === 'Admin') {
+                    $isParticipant = true;
+                    break 2;
+                }
+            }
+        }
+    }
+    
+    if ($isParticipant && $meetingDate >= $now) {
+        $upcomingMeetings[] = $meeting;
+    }
+}
+
+// Sort by date/time
+usort($upcomingMeetings, function($a, $b) {
+    $dateA = new DateTime($a['date'] . ' ' . $a['time']);
+    $dateB = new DateTime($b['date'] . ' ' . $b['time']);
+    return $dateA <=> $dateB;
+});
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -124,8 +167,7 @@ if ($role !== 'Admin') {
             margin-bottom: 0.5rem;
             align-items: center;
         }
-        .participant-item select { width: 200px; }
-        .participant-item input { width: 150px; }
+        .participant-item select { flex: 1; }
         .add-participant-btn, .remove-participant-btn {
             padding: 0.5rem 1rem;
             border: none;
@@ -161,6 +203,7 @@ if ($role !== 'Admin') {
             padding: 2rem;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
         }
         .agencies-section h2 { color: #333; margin-bottom: 1.5rem; }
         .agency-card {
@@ -210,6 +253,19 @@ if ($role !== 'Admin') {
             margin-top: 1rem;
         }
         .edit-agency-btn:hover { background: #2980b9; }
+        .create-meeting-btn {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 1rem;
+            margin-right: 0.5rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .create-meeting-btn:hover { background: #229954; }
         .message {
             padding: 0.75rem;
             border-radius: 5px;
@@ -225,6 +281,37 @@ if ($role !== 'Admin') {
             color: #e74c3c;
             border: 1px solid #e74c3c;
         }
+        
+        /* Meetings Section */
+        .meetings-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        .meetings-section h2 { color: #333; margin-bottom: 1.5rem; }
+        .meeting-card {
+            background: #e8f5e9;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border-left: 4px solid #27ae60;
+        }
+        .meeting-card h3 { color: #333; margin-bottom: 0.5rem; }
+        .meeting-info { margin-bottom: 0.3rem; color: #555; }
+        .view-meeting-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .view-meeting-btn:hover { background: #5568d3; }
     </style>
 </head>
 <body>
@@ -240,6 +327,22 @@ if ($role !== 'Admin') {
                 <button type="submit" class="logout-btn">Logout</button>
             </form>
         </div>
+
+        <!-- Upcoming Meetings -->
+        <?php if (!empty($upcomingMeetings)): ?>
+        <div class="meetings-section">
+            <h2>Upcoming Meetings</h2>
+            <?php foreach ($upcomingMeetings as $meeting): ?>
+                <div class="meeting-card">
+                    <h3><?php echo htmlspecialchars($meeting['agency_name']); ?> - Meeting</h3>
+                    <p class="meeting-info"><strong>Date:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
+                    <p class="meeting-info"><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?></p>
+                    <p class="meeting-info"><strong>Recurring:</strong> <?php echo htmlspecialchars($meeting['recurring']); ?></p>
+                    <a href="view_meeting.php?id=<?php echo $meeting['id']; ?>" class="view-meeting-btn">View Meeting</a>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
 
         <?php if ($role === 'Admin'): ?>
             <!-- Admin Panel: Create Agency -->
@@ -332,7 +435,7 @@ if ($role !== 'Admin') {
                     <p style="color: #999; text-align: center;">You are not a member of any agency yet.</p>
                 <?php else: ?>
                     <?php foreach ($userAgencies as $item): ?>
-                        <?php $agency = $item['agency']; $userRole = $item['role']; ?>
+                        <?php $agency = $item['agency']; $userRole = $item['role']; $agencyIndex = $item['index']; ?>
                         <div class="agency-card">
                             <h3><?php echo htmlspecialchars($agency['name']); ?></h3>
                             <p class="agency-info"><strong>Your Role:</strong> 
@@ -352,6 +455,10 @@ if ($role !== 'Admin') {
                                     </span>
                                 <?php endforeach; ?>
                             </div>
+                            
+                            <?php if ($userRole === 'secretary'): ?>
+                                <a href="create_meeting.php?agency_index=<?php echo $agencyIndex; ?>" class="create-meeting-btn">Create Meeting</a>
+                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
