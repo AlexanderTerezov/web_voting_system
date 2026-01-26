@@ -18,7 +18,7 @@ if (file_exists($agencies_file)) {
 }
 
 // Load meetings
-$meetings_file = 'meetings.json';
+$meetings_file = '../db/meetings.json';
 $meetings = [];
 if (file_exists($meetings_file)) {
     $meetings = json_decode(file_get_contents($meetings_file), true);
@@ -312,6 +312,19 @@ usort($upcomingMeetings, function($a, $b) {
             display: inline-block;
         }
         .view-meeting-btn:hover { background: #5568d3; }
+
+        .delete-meeting-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            margin-left: 0.5rem;
+        }
+
+        .delete-meeting-btn:hover { background: #c0392b; }
     </style>
 </head>
 <body>
@@ -333,12 +346,32 @@ usort($upcomingMeetings, function($a, $b) {
         <div class="meetings-section">
             <h2>Upcoming Meetings</h2>
             <?php foreach ($upcomingMeetings as $meeting): ?>
+                <?php
+                // Check if user is secretary in this meeting's agency
+                $canDelete = false;
+                foreach ($agencies as $agency) {
+                    if ($agency['name'] === $meeting['agency_name']) {
+                        foreach ($agency['participants'] as $participant) {
+                            if ($participant['username'] === $_SESSION['user'] && $participant['role'] === 'secretary') {
+                                $canDelete = true;
+                                break 2;
+                            }
+                        }
+                    }
+                }
+                ?>
                 <div class="meeting-card">
                     <h3><?php echo htmlspecialchars($meeting['agency_name']); ?> - Meeting</h3>
                     <p class="meeting-info"><strong>Date:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
                     <p class="meeting-info"><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?></p>
                     <p class="meeting-info"><strong>Recurring:</strong> <?php echo htmlspecialchars($meeting['recurring']); ?></p>
                     <a href="view_meeting.php?id=<?php echo $meeting['id']; ?>" class="view-meeting-btn">View Meeting</a>
+                    <?php if ($canDelete): ?>
+                        <form action="delete_meeting.php" method="POST" style="display: inline;">
+                            <input type="hidden" name="meeting_id" value="<?php echo $meeting['id']; ?>">
+                            <button type="submit" class="delete-meeting-btn" onclick="return confirm('Are you sure you want to delete this meeting?')">Delete</button>
+                        </form>
+                    <?php endif; ?>
                 </div>
             <?php endforeach; ?>
         </div>
@@ -407,7 +440,13 @@ usort($upcomingMeetings, function($a, $b) {
                             
                             <div class="participant-list">
                                 <strong>Participants:</strong><br>
-                                <?php foreach ($agency['participants'] as $participant): ?>
+                                <?php 
+                                $adminIsSecretary = false;
+                                foreach ($agency['participants'] as $participant): 
+                                    if ($participant['username'] === $_SESSION['user'] && $participant['role'] === 'secretary') {
+                                        $adminIsSecretary = true;
+                                    }
+                                ?>
                                     <span class="participant <?php echo $participant['role'] === 'secretary' ? 'secretary' : ''; ?>">
                                         <?php echo htmlspecialchars($participant['username']); ?>
                                         <?php echo $participant['role'] === 'secretary' ? '(Secretary)' : ''; ?>
@@ -422,6 +461,9 @@ usort($upcomingMeetings, function($a, $b) {
                             <a href="edit_agency.php?index=<?php echo $index; ?>">
                                 <button type="button" class="edit-agency-btn">Edit Agency</button>
                             </a>
+                            <?php if ($adminIsSecretary): ?>
+                                <a href="create_meeting.php?agency_index=<?php echo $index; ?>" class="create-meeting-btn">Create Meeting</a>
+                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>

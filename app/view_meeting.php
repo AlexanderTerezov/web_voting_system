@@ -9,7 +9,7 @@ if (!isset($_SESSION['user'])) {
 $meeting_id = isset($_GET['id']) ? $_GET['id'] : '';
 
 // Load meetings
-$meetings_file = 'meetings.json';
+$meetings_file = '../db/meetings.json';
 if (!file_exists($meetings_file)) {
     header('Location: dashboard.php?error=Meeting not found');
     exit();

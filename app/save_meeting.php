@@ -24,7 +24,7 @@ if (empty($meeting_date) || empty($meeting_time) || empty($recurring)) {
 }
 
 // Load existing meetings
-$meetings_file = 'meetings.json';
+$meetings_file = '../db/meetings.json';
 $meetings = [];
 if (file_exists($meetings_file)) {
     $meetings = json_decode(file_get_contents($meetings_file), true);

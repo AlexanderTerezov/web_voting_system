@@ -3,7 +3,10 @@
 1. Admin and Guest login ✅
 2. Create agency ✅
 3. Config add participants, quorum, rights (secretaries) ✅
-4. People of agency with rights can make meetings with date and repeating time
+4. People of agency with rights can make meetings with date and repeating time ✅
+   - add meeting name
+   - change css to not chatgpt
+   - make it a history more like not only upcoming meetings
 5. They also can add voting descisions with 3 options Y/N/? (can import documents and pictures)
 6. Join meetings and vote
 7. Generate document

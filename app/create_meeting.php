@@ -24,7 +24,7 @@ if (!isset($agencies[$agency_index])) {
 
 $agency = $agencies[$agency_index];
 
-// Check if user is secretary in this agency
+// Check if user is secretary in this agency (including admin)
 $isSecretary = false;
 foreach ($agency['participants'] as $participant) {
     if ($participant['username'] === $_SESSION['user'] && $participant['role'] === 'secretary') {
@@ -33,7 +33,7 @@ foreach ($agency['participants'] as $participant) {
     }
 }
 
-if (!$isSecretary && $_SESSION['role'] !== 'Admin') {
+if (!$isSecretary) {
     header('Location: dashboard.php?error=Only secretaries can create meetings');
     exit();
 }
