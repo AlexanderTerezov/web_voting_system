@@ -1,5 +1,9 @@
 <?php
 session_start();
+
+// Set timezone (adjust to your timezone)
+date_default_timezone_set('Europe/Sofia'); // Change this to your timezone if needed
+
 if (!isset($_SESSION['user'])) {
     header('Location: index.php');
     exit();
@@ -54,11 +58,17 @@ if ($role !== 'Admin') {
     }
 }
 
-// Get upcoming meetings for user
+// Get upcoming and past meetings for user
 $upcomingMeetings = [];
+$pastMeetings = [];
 $now = new DateTime();
+
 foreach ($meetings as $meeting) {
-    $meetingDate = new DateTime($meeting['date'] . ' ' . $meeting['time']);
+    // Calculate meeting end time based on duration
+    $meetingStart = new DateTime($meeting['date'] . ' ' . $meeting['time']);
+    $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60; // Default 60 minutes
+    $meetingEnd = clone $meetingStart;
+    $meetingEnd->modify("+{$duration} minutes");
     
     // Check if user is part of this agency
     $isParticipant = false;
@@ -73,17 +83,31 @@ foreach ($meetings as $meeting) {
         }
     }
     
-    if ($isParticipant && $meetingDate >= $now) {
-        $upcomingMeetings[] = $meeting;
+    if ($isParticipant) {
+        if ($meetingEnd >= $now) {
+            $upcomingMeetings[] = $meeting;
+        } else {
+            $pastMeetings[] = $meeting;
+        }
     }
 }
 
-// Sort by date/time
+// Sort upcoming by date/time (ascending)
 usort($upcomingMeetings, function($a, $b) {
     $dateA = new DateTime($a['date'] . ' ' . $a['time']);
     $dateB = new DateTime($b['date'] . ' ' . $b['time']);
     return $dateA <=> $dateB;
 });
+
+// Sort past by date/time (descending - most recent first)
+usort($pastMeetings, function($a, $b) {
+    $dateA = new DateTime($a['date'] . ' ' . $a['time']);
+    $dateB = new DateTime($b['date'] . ' ' . $b['time']);
+    return $dateB <=> $dateA;
+});
+
+// Get last 5 past meetings for quick view
+$recentPastMeetings = array_slice($pastMeetings, 0, 5);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -193,165 +217,311 @@ usort($upcomingMeetings, function($a, $b) {
             align-items: center;
         }
         .participant-item select{ flex: 1; }
-
-        .logout-btn,
-        .add-participant-btn,
-        .remove-participant-btn,
-        .submit-btn,
-        .delete-agency-btn,
-        .edit-agency-btn,
-        .create-meeting-btn,
-        .view-meeting-btn,
-        .delete-meeting-btn{
-            padding: 10px 12px;
+        .add-participant-btn, .remove-participant-btn{
+            padding: 8px 12px;
             border: 1px solid rgba(17,24,39,0.12);
             border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
             background: #111827;
             color: #fff;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 80ms ease, opacity 120ms ease;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
         }
-        .logout-btn:hover,
-        .add-participant-btn:hover,
-        .remove-participant-btn:hover,
-        .submit-btn:hover,
-        .delete-agency-btn:hover,
-        .edit-agency-btn:hover,
-        .create-meeting-btn:hover,
-        .view-meeting-btn:hover,
-        .delete-meeting-btn:hover{ opacity: 0.95; }
-        .logout-btn:active,
-        .add-participant-btn:active,
-        .remove-participant-btn:active,
-        .submit-btn:active,
-        .delete-agency-btn:active,
-        .edit-agency-btn:active,
-        .create-meeting-btn:active,
-        .view-meeting-btn:active,
-        .delete-meeting-btn:active{ transform: translateY(1px); }
-
-        .remove-participant-btn,
-        .delete-agency-btn,
-        .delete-meeting-btn{
+        .add-participant-btn{
+            margin-bottom: 10px;
+        }
+        .remove-participant-btn{
             background: #fff;
             color: var(--danger-text);
             border-color: rgba(153,27,27,0.25);
         }
-        .edit-agency-btn,
-        .view-meeting-btn{
-            background: #fff;
-            color: var(--accent);
-            border-color: rgba(31,75,153,0.25);
+        .submit-btn{
+            width: 100%;
+            padding: 11px 12px;
+            border: 1px solid rgba(17,24,39,0.12);
+            border-radius: 10px;
+            background: #111827;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 80ms ease, opacity 120ms ease;
         }
-        .create-meeting-btn{
+        .submit-btn:hover{ opacity: 0.95; }
+        .submit-btn:active{ transform: translateY(1px); }
+        .logout-btn{
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
             background: #fff;
-            color: var(--success-text);
-            border-color: rgba(6,95,70,0.25);
+            color: var(--text);
+            text-decoration: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: box-shadow 120ms ease;
         }
-        .logout-btn{ margin-top: 12px; }
-        .add-participant-btn{ margin-bottom: 10px; }
-
+        .logout-btn:hover{ box-shadow: 0 4px 12px rgba(17,24,39,0.08); }
         .message{
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 10px 12px;
-            margin-bottom: 14px;
+            margin: 14px 0;
             font-size: 14px;
-        }
-        .success{
-            background: var(--success-bg);
-            color: var(--success-text);
-            border-color: rgba(6,95,70,0.25);
         }
         .error{
             background: var(--danger-bg);
             color: var(--danger-text);
             border-color: rgba(153,27,27,0.25);
         }
-
+        .success{
+            background: var(--success-bg);
+            color: var(--success-text);
+            border-color: rgba(6,95,70,0.25);
+        }
         .agency-card, .meeting-card{
             background: #f8fafc;
             border: 1px solid var(--border);
-            border-radius: 12px;
             padding: 16px;
+            border-radius: 10px;
             margin-bottom: 12px;
         }
-        .agency-info, .meeting-info{ margin-bottom: 6px; color: var(--muted); }
+        .agency-info, .meeting-info{
+            font-size: 14px;
+            color: var(--muted);
+            margin: 4px 0;
+        }
         .participant-list{
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid var(--border);
+            margin-top: 10px;
+            font-size: 14px;
         }
         .participant{
-            display: inline-flex;
-            align-items: center;
+            display: inline-block;
             padding: 4px 10px;
-            background: #eef2ff;
+            margin: 3px;
+            background: #fff;
+            border: 1px solid var(--border);
             border-radius: 999px;
-            margin: 4px 6px 4px 0;
-            font-size: 12px;
-            color: #1f2937;
+            font-size: 13px;
         }
         .participant.secretary{
             background: rgba(31,75,153,0.12);
             color: var(--accent);
+            border-color: rgba(31,75,153,0.25);
+        }
+        .delete-agency-btn, .edit-agency-btn, .create-meeting-btn, .view-meeting-btn, .delete-meeting-btn{
+            padding: 8px 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
             font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+            margin-right: 8px;
+            font-size: 14px;
+            transition: box-shadow 120ms ease;
+        }
+        .delete-agency-btn, .delete-meeting-btn{
+            background: var(--danger-bg);
+            color: var(--danger-text);
+            border-color: rgba(153,27,27,0.25);
+        }
+        .edit-agency-btn{
+            background: #fff;
+            color: var(--accent);
+        }
+        .create-meeting-btn{
+            background: #111827;
+            color: #fff;
+        }
+        .view-meeting-btn{
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+        .delete-agency-btn:hover, .edit-agency-btn:hover, .create-meeting-btn:hover, .view-meeting-btn:hover, .delete-meeting-btn:hover{
+            box-shadow: 0 4px 12px rgba(17,24,39,0.12);
+        }
+        .agency-actions{
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        .inline-form{
+            display: inline;
+        }
+        
+        /* Meeting sections styling */
+        .meeting-header-wrapper{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .meeting-status{
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        
+        .status-upcoming{
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .status-past{
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        .meeting-name{
+            font-weight: 600;
+            font-size: 15px;
+            margin-bottom: 6px;
+            color: var(--text);
+        }
+        
+        .empty-state{
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--muted);
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <!-- Header -->
         <div class="header">
-            <h1>Welcome, <?php echo htmlspecialchars($username); ?>!</h1>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h1>Dashboard</h1>
+                <div style="display: flex; gap: 10px;">
+                    <a href="all_meetings.php" class="logout-btn" style="background: var(--accent); color: #fff;">View All Meetings</a>
+                    <a href="logout.php" class="logout-btn">Logout</a>
+                </div>
+            </div>
             <div class="user-info">
+                <p><strong>Username:</strong> <?php echo htmlspecialchars($username); ?></p>
                 <p><strong>Email:</strong> <?php echo htmlspecialchars($email); ?></p>
                 <p><strong>Role:</strong> <span class="user-role <?php echo $role === 'Admin' ? 'admin-role' : 'user-role-badge'; ?>"><?php echo htmlspecialchars($role); ?></span></p>
                 <p><strong>Login Time:</strong> <?php echo htmlspecialchars($loginTime); ?></p>
+                <p><strong>Current Server Time:</strong> <?php echo date('Y-m-d H:i:s'); ?> (<?php echo date_default_timezone_get(); ?>)</p>
             </div>
-            <form action="logout.php" method="POST">
-                <button type="submit" class="logout-btn">Logout</button>
-            </form>
         </div>
 
         <!-- Upcoming Meetings -->
         <?php if (!empty($upcomingMeetings)): ?>
         <div class="meetings-section">
-            <h2>Upcoming Meetings</h2>
+            <div class="meeting-header-wrapper">
+                <h2>Upcoming Meetings</h2>
+            </div>
             <?php foreach ($upcomingMeetings as $meeting): ?>
                 <?php
-                // Check if user is secretary in this meeting's agency
+                // Check if user can delete this meeting
                 $canDelete = false;
-                foreach ($agencies as $agency) {
-                    if ($agency['name'] === $meeting['agency_name']) {
-                        foreach ($agency['participants'] as $participant) {
-                            if ($participant['username'] === $_SESSION['user'] && $participant['role'] === 'secretary') {
-                                $canDelete = true;
-                                break 2;
+                if ($role === 'Admin') {
+                    $canDelete = true;
+                } else {
+                    foreach ($agencies as $agency) {
+                        if ($agency['name'] === $meeting['agency_name']) {
+                            foreach ($agency['participants'] as $participant) {
+                                if ($participant['username'] === $username && $participant['role'] === 'secretary') {
+                                    $canDelete = true;
+                                    break 2;
+                                }
                             }
                         }
                     }
                 }
+                
+                // Calculate end time
+                $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
+                $endTime = new DateTime($meeting['date'] . ' ' . $meeting['time']);
+                $endTime->modify("+{$duration} minutes");
                 ?>
                 <div class="meeting-card">
-                    <h3><?php echo htmlspecialchars($meeting['agency_name']); ?> - Meeting</h3>
+                    <div class="meeting-name">
+                        <?php echo htmlspecialchars($meeting['name'] ?? 'Unnamed Meeting'); ?>
+                        <span class="meeting-status status-upcoming">Upcoming</span>
+                    </div>
+                    <h3><?php echo htmlspecialchars($meeting['agency_name']); ?></h3>
                     <p class="meeting-info"><strong>Date:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
-                    <p class="meeting-info"><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?></p>
+                    <p class="meeting-info"><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $endTime->format('H:i'); ?> (<?php echo $duration; ?> minutes)</p>
                     <p class="meeting-info"><strong>Recurring:</strong> <?php echo htmlspecialchars($meeting['recurring']); ?></p>
-                    <a href="view_meeting.php?id=<?php echo $meeting['id']; ?>" class="view-meeting-btn">View Meeting</a>
-                    <?php if ($canDelete): ?>
-                        <form action="delete_meeting.php" method="POST" style="display: inline;">
-                            <input type="hidden" name="meeting_id" value="<?php echo $meeting['id']; ?>">
-                            <button type="submit" class="delete-meeting-btn" onclick="return confirm('Are you sure you want to delete this meeting?')">Delete</button>
-                        </form>
-                    <?php endif; ?>
+                    <div style="margin-top: 10px;">
+                        <a href="view_meeting.php?id=<?php echo $meeting['id']; ?>" class="view-meeting-btn">View Meeting</a>
+                        <?php if ($canDelete): ?>
+                            <form action="delete_meeting.php" method="POST" style="display: inline;">
+                                <input type="hidden" name="meeting_id" value="<?php echo $meeting['id']; ?>">
+                                <button type="submit" class="delete-meeting-btn" onclick="return confirm('Are you sure you want to delete this meeting?')">Delete</button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
                 </div>
             <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- Recent Past Meetings -->
+        <?php if (!empty($recentPastMeetings)): ?>
+        <div class="meetings-section">
+            <div class="meeting-header-wrapper">
+                <h2>Recent Past Meetings</h2>
+            </div>
+            <?php foreach ($recentPastMeetings as $meeting): ?>
+                <?php
+                // Check if user can delete this meeting
+                $canDelete = false;
+                if ($role === 'Admin') {
+                    $canDelete = true;
+                } else {
+                    foreach ($agencies as $agency) {
+                        if ($agency['name'] === $meeting['agency_name']) {
+                            foreach ($agency['participants'] as $participant) {
+                                if ($participant['username'] === $username && $participant['role'] === 'secretary') {
+                                    $canDelete = true;
+                                    break 2;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Calculate end time
+                $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
+                $endTime = new DateTime($meeting['date'] . ' ' . $meeting['time']);
+                $endTime->modify("+{$duration} minutes");
+                ?>
+                <div class="meeting-card">
+                    <div class="meeting-name">
+                        <?php echo htmlspecialchars($meeting['name'] ?? 'Unnamed Meeting'); ?>
+                        <span class="meeting-status status-past">Past</span>
+                    </div>
+                    <h3><?php echo htmlspecialchars($meeting['agency_name']); ?></h3>
+                    <p class="meeting-info"><strong>Date:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
+                    <p class="meeting-info"><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $endTime->format('H:i'); ?> (<?php echo $duration; ?> minutes)</p>
+                    <p class="meeting-info"><strong>Recurring:</strong> <?php echo htmlspecialchars($meeting['recurring']); ?></p>
+                    <div style="margin-top: 10px;">
+                        <a href="view_meeting.php?id=<?php echo $meeting['id']; ?>" class="view-meeting-btn">View Meeting</a>
+                        <?php if ($canDelete): ?>
+                            <form action="delete_meeting.php" method="POST" style="display: inline;">
+                                <input type="hidden" name="meeting_id" value="<?php echo $meeting['id']; ?>">
+                                <button type="submit" class="delete-meeting-btn" onclick="return confirm('Are you sure you want to delete this meeting?')">Delete</button>
+                            </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        <?php elseif (empty($upcomingMeetings)): ?>
+        <div class="meetings-section">
+            <h2>Meetings</h2>
+            <div class="empty-state">
+                <p>No meetings scheduled yet</p>
+            </div>
         </div>
         <?php endif; ?>
 
@@ -431,17 +601,19 @@ usort($upcomingMeetings, function($a, $b) {
                                     </span>
                                 <?php endforeach; ?>
                             </div>
-                            
-                            <form action="delete_agency.php" method="POST" style="display: inline;">
-                                <input type="hidden" name="agency_index" value="<?php echo $index; ?>">
-                                <button type="submit" class="delete-agency-btn" onclick="return confirm('Are you sure you want to delete this agency?')">Delete Agency</button>
-                            </form>
-                            <a href="edit_agency.php?index=<?php echo $index; ?>">
-                                <button type="button" class="edit-agency-btn">Edit Agency</button>
-                            </a>
-                            <?php if ($adminIsSecretary): ?>
-                                <a href="create_meeting.php?agency_index=<?php echo $index; ?>" class="create-meeting-btn">Create Meeting</a>
-                            <?php endif; ?>
+
+                            <div class="agency-actions">
+                                <form action="delete_agency.php" method="POST" class="inline-form">
+                                    <input type="hidden" name="agency_index" value="<?php echo $index; ?>">
+                                    <button type="submit" class="delete-agency-btn" onclick="return confirm('Are you sure you want to delete this agency?')">Delete Agency</button>
+                                </form>
+
+                                <a href="edit_agency.php?index=<?php echo $index; ?>" class="edit-agency-btn">Edit Agency</a>
+
+                                <?php if ($adminIsSecretary): ?>
+                                    <a href="create_meeting.php?agency_index=<?php echo $index; ?>" class="create-meeting-btn">Create Meeting</a>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -477,7 +649,9 @@ usort($upcomingMeetings, function($a, $b) {
                             </div>
                             
                             <?php if ($userRole === 'secretary'): ?>
-                                <a href="create_meeting.php?agency_index=<?php echo $agencyIndex; ?>" class="create-meeting-btn">Create Meeting</a>
+                                <div class="agency-actions">
+                                    <a href="create_meeting.php?agency_index=<?php echo $agencyIndex; ?>" class="create-meeting-btn">Create Meeting</a>
+                                </div>
                             <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
@@ -487,6 +661,7 @@ usort($upcomingMeetings, function($a, $b) {
     </div>
 
     <script>
+        // Agency form functions
         function addParticipant() {
             const container = document.getElementById('participantsContainer');
             const newItem = container.firstElementChild.cloneNode(true);

@@ -1,6 +1,9 @@
 <?php
 session_start();
 
+// Set timezone
+date_default_timezone_set('Europe/Sofia');
+
 if (!isset($_SESSION['user'])) {
     header('Location: index.php');
     exit();
@@ -148,10 +151,18 @@ if (!$hasAccess) {
 <body>
     <div class="container">
         <div class="meeting-header">
-            <h1><?php echo htmlspecialchars($meeting['agency_name']); ?> - Meeting</h1>
+            <h1><?php echo htmlspecialchars($meeting['name'] ?? 'Unnamed Meeting'); ?></h1>
+            <p style="font-size: 14px; color: var(--muted); margin: 8px 0 0 0;">
+                <?php echo htmlspecialchars($meeting['agency_name']); ?>
+            </p>
             <div class="meeting-info">
+                <?php 
+                $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
+                $endTime = new DateTime($meeting['date'] . ' ' . $meeting['time']);
+                $endTime->modify("+{$duration} minutes");
+                ?>
                 <p><strong>Date:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
-                <p><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?></p>
+                <p><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $endTime->format('H:i'); ?> (<?php echo $duration; ?> minutes)</p>
                 <p><strong>Recurring:</strong> <?php echo htmlspecialchars($meeting['recurring']); ?></p>
                 <p><strong>Created by:</strong> <?php echo htmlspecialchars($meeting['created_by']); ?></p>
             </div>

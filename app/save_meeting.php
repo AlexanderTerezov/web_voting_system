@@ -13,12 +13,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $agency_index = intval($_POST['agency_index']);
 $agency_name = $_POST['agency_name'];
+$meeting_name = trim($_POST['meeting_name']);
 $meeting_date = $_POST['meeting_date'];
 $meeting_time = $_POST['meeting_time'];
+$duration = intval($_POST['duration']);
 $recurring = $_POST['recurring'];
 
 // Validate inputs
-if (empty($meeting_date) || empty($meeting_time) || empty($recurring)) {
+if (empty($meeting_name) || empty($meeting_date) || empty($meeting_time) || empty($recurring) || $duration < 1) {
     header('Location: create_meeting.php?agency_index=' . $agency_index . '&error=All fields are required');
     exit();
 }
@@ -36,10 +38,12 @@ $meeting_id = uniqid('meeting_', true);
 // Create new meeting
 $meetings[] = [
     'id' => $meeting_id,
+    'name' => $meeting_name,
     'agency_name' => $agency_name,
     'agency_index' => $agency_index,
     'date' => $meeting_date,
     'time' => $meeting_time,
+    'duration' => $duration,
     'recurring' => $recurring,
     'created_by' => $_SESSION['user'],
     'created_at' => date('Y-m-d H:i:s')

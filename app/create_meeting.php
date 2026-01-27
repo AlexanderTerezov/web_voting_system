@@ -178,6 +178,11 @@ if (!$isSecretary) {
                 <input type="hidden" name="agency_name" value="<?php echo htmlspecialchars($agency['name']); ?>">
                 
                 <div class="form-group">
+                    <label for="meeting_name">Meeting Name</label>
+                    <input type="text" id="meeting_name" name="meeting_name" required placeholder="e.g., Q1 Budget Review">
+                </div>
+                
+                <div class="form-group">
                     <label for="meeting_date">Meeting Date</label>
                     <input type="date" id="meeting_date" name="meeting_date" required min="<?php echo date('Y-m-d'); ?>">
                 </div>
@@ -185,6 +190,12 @@ if (!$isSecretary) {
                 <div class="form-group">
                     <label for="meeting_time">Meeting Time</label>
                     <input type="time" id="meeting_time" name="meeting_time" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="duration">Duration (minutes)</label>
+                    <input type="number" id="duration" name="duration" min="1" value="60" required>
+                    <small style="color: var(--muted); font-size: 13px;">Meeting will be considered past after this duration</small>
                 </div>
                 
                 <div class="form-group">
