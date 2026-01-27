@@ -92,239 +92,217 @@ usort($upcomingMeetings, function($a, $b) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: Arial, sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
-            padding: 2rem 1rem;
+        :root{
+            --bg: #1110;
+            --card: #ffffff;
+            --text: #111827;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --shadow: 0 10px 24px rgba(17, 24, 39, 0.08);
+            --radius: 14px;
+            --accent: #1f4b99;
+            --danger-bg: #fef2f2;
+            --danger-text: #991b1b;
+            --success-bg: #ecfdf5;
+            --success-text: #065f46;
         }
-        .container {
-            max-width: 1200px;
+
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body{
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            background: var(--bg);
+            color: var(--text);
+            padding: 24px;
+        }
+        .container{
+            max-width: 1100px;
             margin: 0 auto;
-        }
-        .header {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-        }
-        h1 { color: #333; margin-bottom: 1rem; }
-        .user-info {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-top: 1rem;
-        }
-        .user-info p { margin: 0.5rem 0; color: #555; }
-        .user-role {
-            display: inline-block;
-            padding: 0.3rem 0.8rem;
-            border-radius: 15px;
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-        .admin-role { background: #667eea; color: white; }
-        .user-role-badge { background: #3498db; color: white; }
-        .logout-btn {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 0.6rem 1.5rem;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 1rem;
-        }
-        .logout-btn:hover { background: #c0392b; }
-        
-        /* Admin Panel */
-        .admin-panel {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-        }
-        .admin-panel h2 { color: #333; margin-bottom: 1.5rem; }
-        .form-group { margin-bottom: 1.5rem; }
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #555;
-            font-weight: 500;
-        }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            font-size: 1rem;
-        }
-        .participant-item {
             display: flex;
-            gap: 1rem;
-            margin-bottom: 0.5rem;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .header, .admin-panel, .agencies-section, .meetings-section{
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
+        }
+        h1{
+            font-size: 22px;
+            line-height: 1.2;
+            margin: 0 0 10px 0;
+            letter-spacing: -0.01em;
+        }
+        h2{
+            font-size: 18px;
+            margin: 0 0 12px 0;
+        }
+        h3{
+            margin: 0 0 8px 0;
+            font-size: 16px;
+        }
+        .user-info{
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 10px;
+            margin-top: 12px;
+        }
+        .user-info p{ margin: 6px 0; color: var(--muted); }
+        .user-role{
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 12px;
+            background: #eef2ff;
+            color: #1f2937;
+        }
+        .admin-role{ background: rgba(31,75,153,0.12); color: var(--accent); }
+        .user-role-badge{ background: rgba(31,75,153,0.12); color: var(--accent); }
+
+        .form-group{ margin-bottom: 14px; }
+        .form-group label{
+            display: block;
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        .form-group input, .form-group select{
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 15px;
+            outline: none;
+            background: #fff;
+            transition: border-color 120ms ease, box-shadow 120ms ease;
+        }
+        .form-group input:focus, .form-group select:focus{
+            border-color: rgba(31,75,153,0.55);
+            box-shadow: 0 0 0 4px rgba(31,75,153,0.12);
+        }
+        .participant-item{
+            display: flex;
+            gap: 10px;
+            margin-bottom: 8px;
             align-items: center;
         }
-        .participant-item select { flex: 1; }
-        .add-participant-btn, .remove-participant-btn {
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-        .add-participant-btn {
-            background: #27ae60;
-            color: white;
-            margin-bottom: 1rem;
-        }
-        .remove-participant-btn {
-            background: #e74c3c;
-            color: white;
-        }
-        .submit-btn {
-            width: 100%;
-            padding: 0.75rem;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-        }
-        .submit-btn:hover { background: #5568d3; }
-        
-        /* Agencies List */
-        .agencies-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-        }
-        .agencies-section h2 { color: #333; margin-bottom: 1.5rem; }
-        .agency-card {
-            background: #f8f9fa;
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            border-left: 4px solid #667eea;
-        }
-        .agency-card h3 { color: #333; margin-bottom: 1rem; }
-        .agency-info { margin-bottom: 0.5rem; color: #555; }
-        .participant-list {
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid #ddd;
-        }
-        .participant {
-            display: inline-block;
-            padding: 0.3rem 0.8rem;
-            background: #e3f2fd;
-            border-radius: 15px;
-            margin: 0.3rem;
-            font-size: 0.9rem;
-        }
-        .participant.secretary {
-            background: #fff3cd;
-            font-weight: 600;
-        }
-        .delete-agency-btn {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 1rem;
-            margin-right: 0.5rem;
-        }
-        .delete-agency-btn:hover { background: #c0392b; }
-        .edit-agency-btn {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 1rem;
-        }
-        .edit-agency-btn:hover { background: #2980b9; }
-        .create-meeting-btn {
-            background: #27ae60;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 1rem;
-            margin-right: 0.5rem;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .create-meeting-btn:hover { background: #229954; }
-        .message {
-            padding: 0.75rem;
-            border-radius: 5px;
-            margin-bottom: 1rem;
-        }
-        .success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .error {
-            background: #ffe5e5;
-            color: #e74c3c;
-            border: 1px solid #e74c3c;
-        }
-        
-        /* Meetings Section */
-        .meetings-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-        }
-        .meetings-section h2 { color: #333; margin-bottom: 1.5rem; }
-        .meeting-card {
-            background: #e8f5e9;
-            padding: 1.5rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            border-left: 4px solid #27ae60;
-        }
-        .meeting-card h3 { color: #333; margin-bottom: 0.5rem; }
-        .meeting-info { margin-bottom: 0.3rem; color: #555; }
-        .view-meeting-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 0.5rem;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .view-meeting-btn:hover { background: #5568d3; }
+        .participant-item select{ flex: 1; }
 
-        .delete-meeting-btn {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 5px;
+        .logout-btn,
+        .add-participant-btn,
+        .remove-participant-btn,
+        .submit-btn,
+        .delete-agency-btn,
+        .edit-agency-btn,
+        .create-meeting-btn,
+        .view-meeting-btn,
+        .delete-meeting-btn{
+            padding: 10px 12px;
+            border: 1px solid rgba(17,24,39,0.12);
+            border-radius: 10px;
+            background: #111827;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
             cursor: pointer;
-            margin-top: 0.5rem;
-            margin-left: 0.5rem;
+            transition: transform 80ms ease, opacity 120ms ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .logout-btn:hover,
+        .add-participant-btn:hover,
+        .remove-participant-btn:hover,
+        .submit-btn:hover,
+        .delete-agency-btn:hover,
+        .edit-agency-btn:hover,
+        .create-meeting-btn:hover,
+        .view-meeting-btn:hover,
+        .delete-meeting-btn:hover{ opacity: 0.95; }
+        .logout-btn:active,
+        .add-participant-btn:active,
+        .remove-participant-btn:active,
+        .submit-btn:active,
+        .delete-agency-btn:active,
+        .edit-agency-btn:active,
+        .create-meeting-btn:active,
+        .view-meeting-btn:active,
+        .delete-meeting-btn:active{ transform: translateY(1px); }
+
+        .remove-participant-btn,
+        .delete-agency-btn,
+        .delete-meeting-btn{
+            background: #fff;
+            color: var(--danger-text);
+            border-color: rgba(153,27,27,0.25);
+        }
+        .edit-agency-btn,
+        .view-meeting-btn{
+            background: #fff;
+            color: var(--accent);
+            border-color: rgba(31,75,153,0.25);
+        }
+        .create-meeting-btn{
+            background: #fff;
+            color: var(--success-text);
+            border-color: rgba(6,95,70,0.25);
+        }
+        .logout-btn{ margin-top: 12px; }
+        .add-participant-btn{ margin-bottom: 10px; }
+
+        .message{
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+            font-size: 14px;
+        }
+        .success{
+            background: var(--success-bg);
+            color: var(--success-text);
+            border-color: rgba(6,95,70,0.25);
+        }
+        .error{
+            background: var(--danger-bg);
+            color: var(--danger-text);
+            border-color: rgba(153,27,27,0.25);
         }
 
-        .delete-meeting-btn:hover { background: #c0392b; }
+        .agency-card, .meeting-card{
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .agency-info, .meeting-info{ margin-bottom: 6px; color: var(--muted); }
+        .participant-list{
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        .participant{
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            background: #eef2ff;
+            border-radius: 999px;
+            margin: 4px 6px 4px 0;
+            font-size: 12px;
+            color: #1f2937;
+        }
+        .participant.secretary{
+            background: rgba(31,75,153,0.12);
+            color: var(--accent);
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>

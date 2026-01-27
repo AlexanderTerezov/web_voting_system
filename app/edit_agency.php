@@ -37,92 +37,129 @@ if (file_exists($users_file)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Agency</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: Arial, sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
-            padding: 2rem 1rem;
+        :root{
+            --bg: #1110;
+            --card: #ffffff;
+            --text: #111827;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --shadow: 0 10px 24px rgba(17, 24, 39, 0.08);
+            --radius: 14px;
+            --accent: #1f4b99;
+            --danger-bg: #fef2f2;
+            --danger-text: #991b1b;
         }
-        .container {
-            max-width: 800px;
+
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body{
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            background: var(--bg);
+            color: var(--text);
+            padding: 24px;
+        }
+        .container{
+            max-width: 860px;
             margin: 0 auto;
         }
-        .edit-panel {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        .edit-panel{
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
         }
-        h2 { color: #333; margin-bottom: 1.5rem; }
-        .form-group { margin-bottom: 1.5rem; }
-        .form-group label {
+        h2{
+            font-size: 20px;
+            line-height: 1.2;
+            margin: 0 0 12px 0;
+            letter-spacing: -0.01em;
+        }
+        .form-group{ margin-bottom: 14px; }
+        .form-group label{
             display: block;
-            margin-bottom: 0.5rem;
-            color: #555;
-            font-weight: 500;
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 6px;
         }
-        .form-group input, .form-group select {
+        .form-group input, .form-group select{
             width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            font-size: 1rem;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 15px;
+            outline: none;
+            background: #fff;
+            transition: border-color 120ms ease, box-shadow 120ms ease;
         }
-        .participant-item {
+        .form-group input:focus, .form-group select:focus{
+            border-color: rgba(31,75,153,0.55);
+            box-shadow: 0 0 0 4px rgba(31,75,153,0.12);
+        }
+        .participant-item{
             display: flex;
-            gap: 1rem;
-            margin-bottom: 0.5rem;
+            gap: 10px;
+            margin-bottom: 8px;
             align-items: center;
         }
-        .participant-item select { flex: 1; }
-        .add-participant-btn, .remove-participant-btn {
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 5px;
+        .participant-item select{ flex: 1; }
+        .add-participant-btn, .remove-participant-btn{
+            padding: 8px 12px;
+            border: 1px solid rgba(17,24,39,0.12);
+            border-radius: 10px;
             cursor: pointer;
             font-weight: 600;
+            background: #111827;
+            color: #fff;
         }
-        .add-participant-btn {
-            background: #27ae60;
-            color: white;
-            margin-bottom: 1rem;
+        .add-participant-btn{
+            margin-bottom: 10px;
         }
-        .remove-participant-btn {
-            background: #e74c3c;
-            color: white;
+        .remove-participant-btn{
+            background: #fff;
+            color: var(--danger-text);
+            border-color: rgba(153,27,27,0.25);
         }
-        .submit-btn {
+        .submit-btn{
             width: 100%;
-            padding: 0.75rem;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 1rem;
+            padding: 11px 12px;
+            border: 1px solid rgba(17,24,39,0.12);
+            border-radius: 10px;
+            background: #111827;
+            color: #fff;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
+            transition: transform 80ms ease, opacity 120ms ease;
         }
-        .submit-btn:hover { background: #5568d3; }
-        .back-btn {
-            display: inline-block;
-            padding: 0.5rem 1rem;
-            background: #95a5a6;
-            color: white;
+        .submit-btn:hover{ opacity: 0.95; }
+        .submit-btn:active{ transform: translateY(1px); }
+        .back-btn{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: #fff;
+            color: var(--accent);
             text-decoration: none;
-            border-radius: 5px;
-            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 14px;
+            font-weight: 600;
         }
-        .back-btn:hover { background: #7f8c8d; }
-        .message {
-            padding: 0.75rem;
-            border-radius: 5px;
-            margin-bottom: 1rem;
+        .back-btn:hover{ text-decoration: none; box-shadow: 0 4px 12px rgba(17,24,39,0.08); }
+        .message{
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin: 14px 0;
+            font-size: 14px;
         }
-        .error {
-            background: #ffe5e5;
-            color: #e74c3c;
-            border: 1px solid #e74c3c;
+        .error{
+            background: var(--danger-bg);
+            color: var(--danger-text);
+            border-color: rgba(153,27,27,0.25);
         }
     </style>
 </head>

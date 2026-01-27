@@ -67,62 +67,83 @@ if (!$hasAccess) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meeting</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: Arial, sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
-            padding: 2rem 1rem;
+        :root{
+            --bg: #1110;
+            --card: #ffffff;
+            --text: #111827;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --shadow: 0 10px 24px rgba(17, 24, 39, 0.08);
+            --radius: 14px;
+            --accent: #1f4b99;
         }
-        .container {
+
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body{
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            background: var(--bg);
+            color: var(--text);
+            padding: 24px;
+        }
+        .container{
             max-width: 1000px;
             margin: 0 auto;
         }
-        .meeting-header {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
+        .meeting-header, .meeting-content{
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px;
         }
-        .meeting-content {
-            background: white;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        .meeting-header{ margin-bottom: 18px; }
+        .meeting-content{
             text-align: center;
-            min-height: 300px;
+            min-height: 260px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        h1 { color: #333; margin-bottom: 1rem; }
-h2 { color: #666; }
-.meeting-info {
-background: #f8f9fa;
-padding: 1rem;
-border-radius: 5px;
-margin-top: 1rem;
-}
-.meeting-info p {
-margin: 0.5rem 0;
-color: #555;
-}
-.back-btn {
-display: inline-block;
-padding: 0.6rem 1.5rem;
-background: #667eea;
-color: white;
-text-decoration: none;
-border-radius: 5px;
-margin-top: 1rem;
-}
-.back-btn:hover { background: #5568d3; }
-.empty-message {
-color: #999;
-font-size: 1.1rem;
-}
-</style>
+        h1{
+            font-size: 20px;
+            line-height: 1.2;
+            margin: 0 0 10px 0;
+            letter-spacing: -0.01em;
+        }
+        .meeting-info{
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-top: 12px;
+            font-size: 14px;
+            color: var(--muted);
+        }
+        .meeting-info p{
+            margin: 6px 0;
+            color: var(--text);
+        }
+        .back-btn{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: #fff;
+            color: var(--accent);
+            text-decoration: none;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-top: 12px;
+            font-weight: 600;
+        }
+        .back-btn:hover{ text-decoration: none; box-shadow: 0 4px 12px rgba(17,24,39,0.08); }
+        .empty-message{
+            color: var(--muted);
+            font-size: 15px;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
