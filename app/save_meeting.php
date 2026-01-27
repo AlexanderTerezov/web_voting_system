@@ -46,7 +46,8 @@ $meetings[] = [
     'duration' => $duration,
     'recurring' => $recurring,
     'created_by' => $_SESSION['user'],
-    'created_at' => date('Y-m-d H:i:s')
+    'created_at' => date('Y-m-d H:i:s'),
+    'questions' => []
 ];
 
 // Save to file

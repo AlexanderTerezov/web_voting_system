@@ -62,6 +62,34 @@ if (!$hasAccess) {
     header('Location: dashboard.php?error=Access denied');
     exit();
 }
+
+// Determine if user can manage questions (secretary or admin)
+$canManageQuestions = false;
+if ($_SESSION['role'] === 'Admin') {
+    $canManageQuestions = true;
+} else {
+    foreach ($agencies as $agency) {
+        if ($agency['name'] === $meeting['agency_name']) {
+            foreach ($agency['participants'] as $participant) {
+                if ($participant['username'] === $_SESSION['user'] && $participant['role'] === 'secretary') {
+                    $canManageQuestions = true;
+                    break 2;
+                }
+            }
+        }
+    }
+}
+
+$duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
+$meetingStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
+$meetingEnd = clone $meetingStart;
+$meetingEnd->modify("+{$duration} minutes");
+$now = new DateTime();
+$meetingActive = $now >= $meetingStart && $now <= $meetingEnd;
+$meetingStarted = $now >= $meetingStart;
+$meetingEnded = $now > $meetingEnd;
+
+$questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $meeting['questions'] : [];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -103,11 +131,11 @@ if (!$hasAccess) {
         }
         .meeting-header{ margin-bottom: 18px; }
         .meeting-content{
-            text-align: center;
             min-height: 260px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            padding: 0;
+            border: none;
+            background: none;
+            box-shadow: none;
         }
         h1{
             font-size: 20px;
@@ -146,6 +174,184 @@ if (!$hasAccess) {
             color: var(--muted);
             font-size: 15px;
         }
+        .section{
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            margin-bottom: 18px;
+        }
+        .status-banner{
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 14px;
+            color: var(--text);
+        }
+        .status-pill{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .status-upcoming{ background: #dbeafe; color: #1e40af; }
+        .status-active{ background: #dcfce7; color: #166534; }
+        .status-ended{ background: #f3f4f6; color: #6b7280; }
+        .status-meta{
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 4px;
+        }
+        .message{
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        .message.success{
+            background: #ecfdf5;
+            color: #065f46;
+            border-color: rgba(6,95,70,0.2);
+        }
+        .message.error{
+            background: #fef2f2;
+            color: #991b1b;
+            border-color: rgba(153,27,27,0.25);
+        }
+        .form-group{ margin-bottom: 12px; }
+        .form-group label{
+            display: block;
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        .form-group input, .form-group textarea{
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 15px;
+            outline: none;
+            background: #fff;
+            transition: border-color 120ms ease, box-shadow 120ms ease;
+        }
+        .form-group textarea{ min-height: 90px; resize: vertical; }
+        .form-group input:focus, .form-group textarea:focus{
+            border-color: rgba(31,75,153,0.55);
+            box-shadow: 0 0 0 4px rgba(31,75,153,0.12);
+        }
+        .submit-btn{
+            padding: 10px 14px;
+            border: 1px solid rgba(17,24,39,0.12);
+            border-radius: 10px;
+            background: #111827;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .questions-list{
+            display: grid;
+            gap: 12px;
+        }
+        .question-card{
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            background: #fff;
+        }
+        .question-header{
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .question-title{
+            font-weight: 700;
+            font-size: 16px;
+        }
+        .question-meta{
+            color: var(--muted);
+            font-size: 12px;
+        }
+        .question-desc{
+            color: var(--text);
+            font-size: 14px;
+            margin: 8px 0 0 0;
+            white-space: pre-wrap;
+        }
+        .attachments{
+            margin-top: 10px;
+        }
+        .attachment-grid{
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        }
+        .attachment-item{
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px;
+            background: #f8fafc;
+            font-size: 13px;
+            color: var(--text);
+        }
+        .attachment-item img{
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            display: block;
+        }
+        .vote-area{
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .vote-counts{
+            font-size: 13px;
+            color: var(--muted);
+        }
+        .vote-buttons{
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .vote-btn{
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: #fff;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .vote-btn.yes{ border-color: rgba(22,101,52,0.4); color: #166534; }
+        .vote-btn.no{ border-color: rgba(153,27,27,0.35); color: #991b1b; }
+        .vote-btn.abstain{ border-color: rgba(107,114,128,0.5); color: #374151; }
+        .vote-btn.active{
+            background: #111827;
+            color: #fff;
+            border-color: #111827;
+        }
+        .vote-disabled{
+            color: var(--muted);
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -156,21 +362,172 @@ if (!$hasAccess) {
                 <?php echo htmlspecialchars($meeting['agency_name']); ?>
             </p>
             <div class="meeting-info">
-                <?php 
-                $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
-                $endTime = new DateTime($meeting['date'] . ' ' . $meeting['time']);
-                $endTime->modify("+{$duration} minutes");
-                ?>
                 <p><strong>Date:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
-                <p><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $endTime->format('H:i'); ?> (<?php echo $duration; ?> minutes)</p>
+                <p><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $meetingEnd->format('H:i'); ?> (<?php echo $duration; ?> minutes)</p>
                 <p><strong>Recurring:</strong> <?php echo htmlspecialchars($meeting['recurring']); ?></p>
                 <p><strong>Created by:</strong> <?php echo htmlspecialchars($meeting['created_by']); ?></p>
             </div>
             <a href="dashboard.php" class="back-btn">← Back to Dashboard</a>
         </div>
-    <div class="meeting-content">
-        <p class="empty-message">Meeting content will be added here</p>
+
+        <div class="meeting-content">
+            <?php if (isset($_GET['success'])): ?>
+                <div class="message success"><?php echo htmlspecialchars($_GET['success']); ?></div>
+            <?php endif; ?>
+            <?php if (isset($_GET['error'])): ?>
+                <div class="message error"><?php echo htmlspecialchars($_GET['error']); ?></div>
+            <?php endif; ?>
+
+            <div class="section">
+                <div class="status-banner">
+                    <div>
+                        <strong>Status:</strong>
+                        <?php if ($meetingActive): ?>
+                            <span class="status-pill status-active">Active</span>
+                        <?php elseif ($meetingStarted): ?>
+                            <span class="status-pill status-ended">Ended</span>
+                        <?php else: ?>
+                            <span class="status-pill status-upcoming">Upcoming</span>
+                        <?php endif; ?>
+                        <div class="status-meta">
+                            Starts: <?php echo $meetingStart->format('Y-m-d H:i'); ?> · Ends: <?php echo $meetingEnd->format('Y-m-d H:i'); ?>
+                        </div>
+                    </div>
+                    <div class="status-meta">
+                        <?php if ($meetingActive): ?>
+                            Voting is open.
+                        <?php elseif ($meetingEnded): ?>
+                            Meeting has ended.
+                        <?php else: ?>
+                            Voting opens when the meeting starts.
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
+            <?php if ($canManageQuestions): ?>
+                <div class="section">
+                    <h2>Add Agenda Point / Question</h2>
+                    <form action="add_question.php" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
+                        <div class="form-group">
+                            <label for="question_text">Question / Talking Point</label>
+                            <input type="text" id="question_text" name="question_text" required placeholder="e.g., Approve the 2026 budget proposal">
+                        </div>
+                        <div class="form-group">
+                            <label for="question_details">Details (optional)</label>
+                            <textarea id="question_details" name="question_details" placeholder="Add background, context, or proposal text."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="attachments">Attachments (images, PDF, Office docs)</label>
+                            <input type="file" id="attachments" name="attachments[]" multiple>
+                        </div>
+                        <button type="submit" class="submit-btn">Add Question</button>
+                    </form>
+                </div>
+            <?php endif; ?>
+
+            <div class="section">
+                <h2>Agenda & Voting</h2>
+                <?php if (empty($questions)): ?>
+                    <p class="empty-message">No questions added yet.</p>
+                <?php else: ?>
+                    <div class="questions-list">
+                        <?php foreach ($questions as $index => $question): ?>
+                            <?php
+                            $votes = isset($question['votes']) && is_array($question['votes']) ? $question['votes'] : [];
+                            $counts = ['yes' => 0, 'no' => 0, 'abstain' => 0];
+                            $userVote = null;
+
+                            $isAssoc = array_keys($votes) !== range(0, count($votes) - 1);
+                            if ($isAssoc) {
+                                foreach ($votes as $voteValue) {
+                                    if (isset($counts[$voteValue])) {
+                                        $counts[$voteValue]++;
+                                    }
+                                }
+                                if (isset($votes[$_SESSION['user']])) {
+                                    $userVote = $votes[$_SESSION['user']];
+                                }
+                            } else {
+                                foreach ($votes as $voteEntry) {
+                                    if (is_array($voteEntry)) {
+                                        $voteValue = $voteEntry['vote'] ?? null;
+                                        if (isset($counts[$voteValue])) {
+                                            $counts[$voteValue]++;
+                                        }
+                                        if (($voteEntry['user'] ?? '') === $_SESSION['user']) {
+                                            $userVote = $voteValue;
+                                        }
+                                    }
+                                }
+                            }
+                            ?>
+                            <div class="question-card">
+                                <div class="question-header">
+                                    <div class="question-title"><?php echo ($index + 1) . '. ' . htmlspecialchars($question['text'] ?? 'Untitled question'); ?></div>
+                                    <div class="question-meta">
+                                        Added by <?php echo htmlspecialchars($question['created_by'] ?? 'Unknown'); ?>
+                                        <?php if (!empty($question['created_at'])): ?>
+                                            · <?php echo htmlspecialchars($question['created_at']); ?>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                                <?php if (!empty($question['details'])): ?>
+                                    <p class="question-desc"><?php echo htmlspecialchars($question['details']); ?></p>
+                                <?php endif; ?>
+
+                                <?php if (!empty($question['attachments']) && is_array($question['attachments'])): ?>
+                                    <div class="attachments">
+                                        <div class="attachment-grid">
+                                            <?php foreach ($question['attachments'] as $attachment): ?>
+                                                <?php
+                                                $attachmentPath = $attachment['path'] ?? '';
+                                                $attachmentUrl = $attachmentPath ? $attachmentPath : '#';
+                                                $attachmentName = $attachment['original_name'] ?? basename($attachmentPath);
+                                                $attachmentType = $attachment['type'] ?? '';
+                                                $isImage = strpos($attachmentType, 'image/') === 0;
+                                                ?>
+                                                <div class="attachment-item">
+                                                    <?php if ($isImage && $attachmentPath): ?>
+                                                        <img src="<?php echo htmlspecialchars($attachmentUrl); ?>" alt="<?php echo htmlspecialchars($attachmentName); ?>">
+                                                    <?php endif; ?>
+                                                    <a href="<?php echo htmlspecialchars($attachmentUrl); ?>" target="_blank" rel="noopener noreferrer">
+                                                        <?php echo htmlspecialchars($attachmentName); ?>
+                                                    </a>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+
+                                <div class="vote-area">
+                                    <div class="vote-counts">
+                                        Yes: <?php echo $counts['yes']; ?> · No: <?php echo $counts['no']; ?> · No Answer: <?php echo $counts['abstain']; ?>
+                                        <?php if ($userVote): ?>
+                                            · Your vote: <?php echo htmlspecialchars(ucfirst($userVote)); ?>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php if ($meetingActive): ?>
+                                        <form action="submit_vote.php" method="POST" class="vote-form">
+                                            <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
+                                            <input type="hidden" name="question_id" value="<?php echo htmlspecialchars($question['id'] ?? ''); ?>">
+                                            <div class="vote-buttons">
+                                                <button type="submit" name="vote" value="yes" class="vote-btn yes <?php echo $userVote === 'yes' ? 'active' : ''; ?>">Yes</button>
+                                                <button type="submit" name="vote" value="no" class="vote-btn no <?php echo $userVote === 'no' ? 'active' : ''; ?>">No</button>
+                                                <button type="submit" name="vote" value="abstain" class="vote-btn abstain <?php echo $userVote === 'abstain' ? 'active' : ''; ?>">No Answer</button>
+                                            </div>
+                                        </form>
+                                    <?php else: ?>
+                                        <div class="vote-disabled">Voting is available only while the meeting is active.</div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
-</div>
 </body>
 </html>
