@@ -11,14 +11,14 @@ $agency_index = isset($_GET['agency_index']) ? intval($_GET['agency_index']) : -
 // Load agencies
 $agencies_file = '../db/agencies.json';
 if (!file_exists($agencies_file)) {
-    header('Location: dashboard.php?error=No agencies found');
+    header('Location: dashboard.php?error=Няма намерени органи');
     exit();
 }
 
 $agencies = json_decode(file_get_contents($agencies_file), true);
 
 if (!isset($agencies[$agency_index])) {
-    header('Location: dashboard.php?error=Agency not found');
+    header('Location: dashboard.php?error=Органът не е намерен');
     exit();
 }
 
@@ -34,7 +34,7 @@ foreach ($agency['participants'] as $participant) {
 }
 
 if (!$isSecretary) {
-    header('Location: dashboard.php?error=Only secretaries can create meetings');
+    header('Location: dashboard.php?error=Само секретари могат да създават заседания');
     exit();
 }
 ?>
@@ -43,7 +43,7 @@ if (!$isSecretary) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Meeting</title>
+    <title>Създай заседание</title>
     <style>
         :root{
             --bg: #1110;
@@ -161,13 +161,13 @@ if (!$isSecretary) {
 </head>
 <body>
     <div class="container">
-        <a href="dashboard.php" class="back-btn">← Back to Dashboard</a>
+        <a href="dashboard.php" class="back-btn">← Назад към таблото</a>
         
         <div class="meeting-panel">
-            <h2>Create Meeting</h2>
+            <h2>Създай заседание</h2>
             
             <div class="agency-info">
-                <strong>Agency:</strong> <?php echo htmlspecialchars($agency['name']); ?>
+                <strong>Орган:</strong> <?php echo htmlspecialchars($agency['name']); ?>
             </div>
             
             <?php if (isset($_GET['error'])): ?>
@@ -179,42 +179,42 @@ if (!$isSecretary) {
                 <input type="hidden" name="agency_name" value="<?php echo htmlspecialchars($agency['name']); ?>">
                 
                 <div class="form-group">
-                    <label for="meeting_name">Meeting Name</label>
-                    <input type="text" id="meeting_name" name="meeting_name" required placeholder="e.g., Q1 Budget Review">
+                    <label for="meeting_name">Име на заседанието</label>
+                    <input type="text" id="meeting_name" name="meeting_name" required placeholder="напр. Бюджет Q1">
                 </div>
 
                 <div class="form-group">
-                    <label for="meeting_reason">Reason / Purpose of Meeting</label>
-                    <textarea id="meeting_reason" name="meeting_reason" placeholder="e.g., Approve Q1 budget changes and align on spending priorities."></textarea>
+                    <label for="meeting_reason">Описание / Дневен ред</label>
+                    <textarea id="meeting_reason" name="meeting_reason" required placeholder="напр. Дневен ред: 1) Гласуване по бюджет Q1 2) План за разходи."></textarea>
                 </div>
                 
                 <div class="form-group">
-                    <label for="meeting_date">Meeting Date</label>
+                    <label for="meeting_date">Дата на заседанието</label>
                     <input type="date" id="meeting_date" name="meeting_date" required min="<?php echo date('Y-m-d'); ?>">
                 </div>
                 
                 <div class="form-group">
-                    <label for="meeting_time">Meeting Time</label>
+                    <label for="meeting_time">Час на заседанието</label>
                     <input type="time" id="meeting_time" name="meeting_time" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="duration">Duration (minutes)</label>
+                    <label for="duration">Продължителност (минути)</label>
                     <input type="number" id="duration" name="duration" min="1" value="60" required>
-                    <small style="color: var(--muted); font-size: 13px;">Meeting will be considered past after this duration</small>
+                    <small style="color: var(--muted); font-size: 13px;">Заседанието се счита за минало след тази продължителност</small>
                 </div>
                 
                 <div class="form-group">
-                    <label for="recurring">Recurring</label>
+                    <label for="recurring">Повтаряемост</label>
                     <select id="recurring" name="recurring" required>
-                        <option value="Once">Once</option>
-                        <option value="Daily">Daily</option>
-                        <option value="Weekly">Weekly</option>
-                        <option value="Monthly">Monthly</option>
+                        <option value="Once">Еднократно</option>
+                        <option value="Daily">Ежедневно</option>
+                        <option value="Weekly">Седмично</option>
+                        <option value="Monthly">Месечно</option>
                     </select>
                 </div>
                 
-                <button type="submit" class="submit-btn">Create Meeting</button>
+                <button type="submit" class="submit-btn">Създай заседание</button>
             </form>
         </div>
     </div>

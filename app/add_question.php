@@ -18,13 +18,13 @@ $question_text = trim($_POST['question_text'] ?? '');
 $question_details = trim($_POST['question_details'] ?? '');
 
 if ($meeting_id === '' || $question_text === '') {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Question text is required');
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Текстът на точката е задължителен');
     exit();
 }
 
 $meetings_file = '../db/meetings.json';
 if (!file_exists($meetings_file)) {
-    header('Location: dashboard.php?error=Meetings file not found');
+    header('Location: dashboard.php?error=Файлът със заседания не е намерен');
     exit();
 }
 
@@ -40,7 +40,7 @@ foreach ($meetings as $index => $m) {
 }
 
 if ($meeting === null) {
-    header('Location: dashboard.php?error=Meeting not found');
+    header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
@@ -68,7 +68,7 @@ if ($_SESSION['role'] === 'Admin') {
 }
 
 if (!$canManageQuestions) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Only secretaries can add questions');
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Само секретари могат да добавят точки');
     exit();
 }
 
@@ -81,7 +81,7 @@ $maxFileSize = 10 * 1024 * 1024;
 if (isset($_FILES['attachments']) && is_array($_FILES['attachments']['name'])) {
     $uploadDir = __DIR__ . '/uploads/meeting_attachments/' . $meeting_id;
     if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true)) {
-        $errors[] = 'Could not create upload directory.';
+        $errors[] = 'Неуспешно създаване на папка за прикачени файлове.';
     }
 
     if (empty($errors)) {
@@ -92,20 +92,20 @@ if (isset($_FILES['attachments']) && is_array($_FILES['attachments']['name'])) {
                 continue;
             }
             if ($error !== UPLOAD_ERR_OK) {
-                $errors[] = 'One of the attachments failed to upload.';
+                $errors[] = 'Един от файловете не може да бъде качен.';
                 continue;
             }
 
             $size = intval($_FILES['attachments']['size'][$i] ?? 0);
             if ($size > $maxFileSize) {
-                $errors[] = 'Attachment exceeds the 10MB size limit.';
+                $errors[] = 'Файлът надвишава ограничението от 10MB.';
                 continue;
             }
 
             $originalName = $_FILES['attachments']['name'][$i] ?? 'attachment';
             $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
             if ($extension === '' || !in_array($extension, $allowedExtensions, true)) {
-                $errors[] = 'Unsupported attachment type: ' . htmlspecialchars($originalName);
+                $errors[] = 'Неподдържан тип файл: ' . htmlspecialchars($originalName);
                 continue;
             }
 
@@ -114,7 +114,7 @@ if (isset($_FILES['attachments']) && is_array($_FILES['attachments']['name'])) {
             $targetPath = $uploadDir . '/' . $storedName;
 
             if (!move_uploaded_file($_FILES['attachments']['tmp_name'][$i], $targetPath)) {
-                $errors[] = 'Could not save attachment: ' . htmlspecialchars($originalName);
+                $errors[] = 'Неуспешно записване на файла: ' . htmlspecialchars($originalName);
                 continue;
             }
 
@@ -158,6 +158,6 @@ $meetings[$meetingIndex]['questions'][] = $question;
 
 file_put_contents($meetings_file, json_encode($meetings, JSON_PRETTY_PRINT), LOCK_EX);
 
-header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Question added');
+header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Точката е добавена');
 exit();
 ?>

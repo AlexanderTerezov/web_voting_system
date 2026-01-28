@@ -21,8 +21,8 @@ $duration = intval($_POST['duration']);
 $recurring = $_POST['recurring'];
 
 // Validate inputs
-if (empty($meeting_name) || empty($meeting_date) || empty($meeting_time) || empty($recurring) || $duration < 1) {
-    header('Location: create_meeting.php?agency_index=' . $agency_index . '&error=All fields are required');
+if (empty($meeting_name) || empty($meeting_reason) || empty($meeting_date) || empty($meeting_time) || empty($recurring) || $duration < 1) {
+    header('Location: create_meeting.php?agency_index=' . $agency_index . '&error=Всички полета са задължителни');
     exit();
 }
 
@@ -56,6 +56,6 @@ $meetings[] = [
 // Save to file
 file_put_contents($meetings_file, json_encode($meetings, JSON_PRETTY_PRINT));
 
-header('Location: dashboard.php?success=Meeting created successfully');
+header('Location: dashboard.php?success=Заседанието е създадено успешно');
 exit();
 ?>

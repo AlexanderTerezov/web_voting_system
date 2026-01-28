@@ -18,13 +18,13 @@ $action = trim($_POST['action_type'] ?? '');
 $extendMinutes = intval($_POST['extend_minutes'] ?? 0);
 
 if ($meeting_id === '' || $action === '') {
-    header('Location: dashboard.php?error=Invalid request');
+    header('Location: dashboard.php?error=Невалидна заявка');
     exit();
 }
 
 $meetings_file = '../db/meetings.json';
 if (!file_exists($meetings_file)) {
-    header('Location: dashboard.php?error=Meetings file not found');
+    header('Location: dashboard.php?error=Файлът със заседания не е намерен');
     exit();
 }
 
@@ -40,7 +40,7 @@ foreach ($meetings as $index => $m) {
 }
 
 if ($meeting === null) {
-    header('Location: dashboard.php?error=Meeting not found');
+    header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
@@ -68,7 +68,7 @@ if ($_SESSION['role'] === 'Admin') {
 }
 
 if (!$canManage) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Access denied');
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Нямате достъп');
     exit();
 }
 
@@ -92,34 +92,34 @@ $now = new DateTime();
 
 if ($action === 'end_early') {
     if (!($now >= $meetingStart && $now <= $meetingEnd)) {
-        header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Meeting is not active');
+        header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Заседанието не е активно');
         exit();
     }
     $meetings[$meetingIndex]['ended_at'] = $now->format('Y-m-d H:i:s');
 } elseif ($action === 'extend') {
     if ($extendMinutes < 1 || $extendMinutes > 240) {
-        header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Invalid extension');
+        header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Невалидно удължаване');
         exit();
     }
     if ($now > $meetingEnd) {
-        header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Meeting has already ended');
+        header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Заседанието вече е приключило');
         exit();
     }
     $meetings[$meetingIndex]['duration'] = $duration + $extendMinutes;
 } elseif ($action === 'start_early') {
     $scheduledStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
     if ($now >= $scheduledStart) {
-        header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Meeting already started');
+        header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Заседанието вече е започнало');
         exit();
     }
     $meetings[$meetingIndex]['started_at'] = $now->format('Y-m-d H:i:s');
 } else {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Invalid action');
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Невалидно действие');
     exit();
 }
 
 file_put_contents($meetings_file, json_encode($meetings, JSON_PRETTY_PRINT), LOCK_EX);
 
-header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Meeting time updated');
+header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Времето на заседанието е обновено');
 exit();
 ?>

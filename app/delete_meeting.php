@@ -16,7 +16,7 @@ $meeting_id = $_POST['meeting_id'];
 // Load meetings
 $meetings_file = '../db/meetings.json';
 if (!file_exists($meetings_file)) {
-    header('Location: dashboard.php?error=No meetings found');
+    header('Location: dashboard.php?error=Няма намерени заседания');
     exit();
 }
 
@@ -34,7 +34,7 @@ foreach ($meetings as $index => $m) {
 }
 
 if ($meeting === null) {
-    header('Location: dashboard.php?error=Meeting not found');
+    header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
@@ -59,7 +59,7 @@ foreach ($agencies as $agency) {
 }
 
 if (!$isSecretary) {
-    header('Location: dashboard.php?error=Only secretaries can delete meetings');
+    header('Location: dashboard.php?error=Само секретари могат да изтриват заседания');
     exit();
 }
 
@@ -67,6 +67,6 @@ if (!$isSecretary) {
 array_splice($meetings, $meetingIndex, 1);
 file_put_contents($meetings_file, json_encode($meetings, JSON_PRETTY_PRINT));
 
-header('Location: dashboard.php?success=Meeting deleted successfully');
+header('Location: dashboard.php?success=Заседанието е изтрито успешно');
 exit();
 ?>

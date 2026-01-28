@@ -13,22 +13,22 @@ $confirm_password = $_POST['confirm_password'];
 
 // Validate inputs
 if (strlen($username) < 3) {
-    header('Location: register.php?error=Username must be at least 3 characters');
+    header('Location: register.php?error=Потребителското име трябва да е поне 3 символа');
     exit();
 }
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    header('Location: register.php?error=Invalid email address');
+    header('Location: register.php?error=Невалиден имейл адрес');
     exit();
 }
 
 if (strlen($password) < 6) {
-    header('Location: register.php?error=Password must be at least 6 characters');
+    header('Location: register.php?error=Паролата трябва да е поне 6 символа');
     exit();
 }
 
 if ($password !== $confirm_password) {
-    header('Location: register.php?error=Passwords do not match');
+    header('Location: register.php?error=Паролите не съвпадат');
     exit();
 }
 
@@ -42,11 +42,11 @@ if (file_exists($users_file)) {
 // Check if username already exists
 foreach ($users as $user) {
     if ($user['username'] === $username) {
-        header('Location: register.php?error=Username already exists');
+        header('Location: register.php?error=Потребителското име вече съществува');
         exit();
     }
     if ($user['email'] === $email) {
-        header('Location: register.php?error=Email already registered');
+        header('Location: register.php?error=Имейлът вече е регистриран');
         exit();
     }
 }

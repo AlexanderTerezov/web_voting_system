@@ -10,14 +10,14 @@ $agency_index = isset($_GET['index']) ? intval($_GET['index']) : -1;
 
 $agencies_file = '../db/agencies.json';
 if (!file_exists($agencies_file)) {
-    header('Location: dashboard.php?error=No agencies found');
+    header('Location: dashboard.php?error=Няма намерени органи');
     exit();
 }
 
 $agencies = json_decode(file_get_contents($agencies_file), true);
 
 if (!isset($agencies[$agency_index])) {
-    header('Location: dashboard.php?error=Agency not found');
+    header('Location: dashboard.php?error=Органът не е намерен');
     exit();
 }
 
@@ -35,7 +35,7 @@ if (file_exists($users_file)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Agency</title>
+    <title>Редактирай орган</title>
     <style>
         :root{
             --bg: #1110;
@@ -165,10 +165,10 @@ if (file_exists($users_file)) {
 </head>
 <body>
     <div class="container">
-        <a href="dashboard.php" class="back-btn">← Back to Dashboard</a>
+        <a href="dashboard.php" class="back-btn">← Назад към таблото</a>
         
         <div class="edit-panel">
-            <h2>Edit Agency</h2>
+            <h2>Редактирай орган</h2>
             <?php if (isset($_GET['error'])): ?>
                 <div class="message error"><?php echo htmlspecialchars($_GET['error']); ?></div>
             <?php endif; ?>
@@ -177,22 +177,22 @@ if (file_exists($users_file)) {
                 <input type="hidden" name="agency_index" value="<?php echo $agency_index; ?>">
                 
                 <div class="form-group">
-                    <label for="agency_name">Agency Name</label>
+                    <label for="agency_name">Име на орган</label>
                     <input type="text" id="agency_name" name="agency_name" value="<?php echo htmlspecialchars($agency['name']); ?>" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="quorum">Quorum</label>
+                    <label for="quorum">Кворум</label>
                     <input type="number" id="quorum" name="quorum" min="1" value="<?php echo htmlspecialchars($agency['quorum']); ?>" required>
                 </div>
                 
                 <div class="form-group">
-                    <label>Participants</label>
+                    <label>Участници</label>
                     <div id="participantsContainer">
                         <?php foreach ($agency['participants'] as $participant): ?>
                             <div class="participant-item">
                                 <select name="participants[]" required>
-                                    <option value="">Select User</option>
+                                    <option value="">Изберете потребител</option>
                                     <?php foreach ($users as $user): ?>
                                         <option value="<?php echo htmlspecialchars($user['username']); ?>" 
                                             <?php echo $user['username'] === $participant['username'] ? 'selected' : ''; ?>>
@@ -201,17 +201,17 @@ if (file_exists($users_file)) {
                                     <?php endforeach; ?>
                                 </select>
                                 <select name="roles[]" required>
-                                    <option value="member" <?php echo $participant['role'] === 'member' ? 'selected' : ''; ?>>Member</option>
-                                    <option value="secretary" <?php echo $participant['role'] === 'secretary' ? 'selected' : ''; ?>>Secretary</option>
+                                    <option value="member" <?php echo $participant['role'] === 'member' ? 'selected' : ''; ?>>Член</option>
+                                    <option value="secretary" <?php echo $participant['role'] === 'secretary' ? 'selected' : ''; ?>>Секретар</option>
                                 </select>
-                                <button type="button" class="remove-participant-btn" onclick="removeParticipant(this)">Remove</button>
+                                <button type="button" class="remove-participant-btn" onclick="removeParticipant(this)">Премахни</button>
                             </div>
                         <?php endforeach; ?>
                     </div>
-                    <button type="button" class="add-participant-btn" onclick="addParticipant()">+ Add Participant</button>
+                    <button type="button" class="add-participant-btn" onclick="addParticipant()">+ Добави участник</button>
                 </div>
                 
-                <button type="submit" class="submit-btn">Update Agency</button>
+                <button type="submit" class="submit-btn">Запази промените</button>
             </form>
         </div>
     </div>
@@ -230,7 +230,7 @@ if (file_exists($users_file)) {
             if (container.children.length > 1) {
                 btn.parentElement.remove();
             } else {
-                alert('At least one participant is required');
+                alert('Нужен е поне един участник');
             }
         }
     </script>

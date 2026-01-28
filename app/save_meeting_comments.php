@@ -17,13 +17,13 @@ $meeting_id = trim($_POST['meeting_id'] ?? '');
 $meeting_comments = trim($_POST['meeting_comments'] ?? '');
 
 if ($meeting_id === '') {
-    header('Location: dashboard.php?error=Meeting not found');
+    header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
 $meetings_file = '../db/meetings.json';
 if (!file_exists($meetings_file)) {
-    header('Location: dashboard.php?error=Meetings file not found');
+    header('Location: dashboard.php?error=Файлът със заседания не е намерен');
     exit();
 }
 
@@ -39,7 +39,7 @@ foreach ($meetings as $index => $m) {
 }
 
 if ($meeting === null) {
-    header('Location: dashboard.php?error=Meeting not found');
+    header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
@@ -67,7 +67,7 @@ if ($_SESSION['role'] === 'Admin') {
 }
 
 if (!$canManage) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Access denied');
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Нямате достъп');
     exit();
 }
 
@@ -90,7 +90,7 @@ if (!empty($meeting['ended_at'])) {
 $now = new DateTime();
 
 if ($now <= $meetingEnd) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Meeting has not ended yet');
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Заседанието още не е приключило');
     exit();
 }
 
@@ -98,6 +98,6 @@ $meetings[$meetingIndex]['comments'] = $meeting_comments;
 
 file_put_contents($meetings_file, json_encode($meetings, JSON_PRETTY_PRINT), LOCK_EX);
 
-header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Comments saved');
+header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Коментарите са запазени');
 exit();
 ?>

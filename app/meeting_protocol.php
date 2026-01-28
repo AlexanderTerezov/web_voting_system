@@ -12,7 +12,7 @@ $meeting_id = isset($_GET['id']) ? trim($_GET['id']) : '';
 
 $meetings_file = '../db/meetings.json';
 if (!file_exists($meetings_file)) {
-    header('Location: dashboard.php?error=Meeting not found');
+    header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
@@ -26,7 +26,7 @@ foreach ($meetings as $m) {
 }
 
 if (!$meeting) {
-    header('Location: dashboard.php?error=Meeting not found');
+    header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
@@ -60,7 +60,7 @@ if ($_SESSION['role'] === 'Admin') {
 }
 
 if (!$hasAccess) {
-    header('Location: dashboard.php?error=Access denied');
+    header('Location: dashboard.php?error=Нямате достъп');
     exit();
 }
 
@@ -83,7 +83,7 @@ if (!empty($meeting['ended_at'])) {
 $now = new DateTime();
 
 if ($now <= $meetingEnd) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Meeting has not ended yet');
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Заседанието още не е приключило');
     exit();
 }
 
@@ -135,7 +135,7 @@ $autoPrint = isset($_GET['print']) && $_GET['print'] === '1';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meeting Protocol</title>
+    <title>Протокол от заседание</title>
     <style>
         :root{
             --text: #111827;
@@ -218,73 +218,74 @@ $autoPrint = isset($_GET['print']) && $_GET['print'] === '1';
 </head>
 <body>
     <div class="page">
-        <h1>Meeting Protocol</h1>
-        <div class="meta">Generated on <?php echo date('Y-m-d H:i'); ?></div>
+        <h1>Протокол от заседание</h1>
+        <div class="meta">Генериран на <?php echo date('Y-m-d H:i'); ?></div>
 
         <div class="card">
             <div class="row">
                 <div>
-                    <div class="label">Meeting</div>
-                    <div class="value"><?php echo htmlspecialchars($meeting['name'] ?? 'Unnamed Meeting'); ?></div>
+                    <div class="label">Заседание</div>
+                    <div class="value"><?php echo htmlspecialchars($meeting['name'] ?? 'Заседание без име'); ?></div>
                 </div>
                 <div>
-                    <div class="label">Agency</div>
+                    <div class="label">Орган</div>
                     <div class="value"><?php echo htmlspecialchars($meeting['agency_name'] ?? ''); ?></div>
                 </div>
                 <div>
-                    <div class="label">Date & Time</div>
+                    <div class="label">Дата и час</div>
                     <div class="value"><?php echo htmlspecialchars($meeting['date'] ?? ''); ?> <?php echo htmlspecialchars($meeting['time'] ?? ''); ?></div>
                 </div>
                 <div>
-                    <div class="label">Duration</div>
-                    <div class="value"><?php echo $duration; ?> minutes</div>
+                    <div class="label">Продължителност</div>
+                    <div class="value"><?php echo $duration; ?> минути</div>
                 </div>
             </div>
             <div style="margin-top: 12px;">
-                <div class="label">Reason / Purpose</div>
-                <div class="value"><?php echo !empty($meeting['reason']) ? htmlspecialchars($meeting['reason']) : '<span class="muted">Not specified</span>'; ?></div>
+                <div class="label">Описание / Дневен ред</div>
+                <div class="value"><?php echo !empty($meeting['reason']) ? htmlspecialchars($meeting['reason']) : '<span class="muted">Няма описание</span>'; ?></div>
             </div>
             <div style="margin-top: 12px;">
-                <div class="label">Comments / Minutes</div>
-                <div class="value"><?php echo !empty($meeting['comments']) ? htmlspecialchars($meeting['comments']) : '<span class="muted">No comments recorded</span>'; ?></div>
+                <div class="label">Коментари / Протокол</div>
+                <div class="value"><?php echo !empty($meeting['comments']) ? htmlspecialchars($meeting['comments']) : '<span class="muted">Няма записани коментари</span>'; ?></div>
             </div>
         </div>
 
-        <h2>Participants</h2>
+        <h2>Участници</h2>
         <div class="card">
             <div class="row">
                 <div>
-                    <div class="label">Attended (voted at least once)</div>
+                    <div class="label">Присъствали (гласували поне веднъж)</div>
                     <div class="value"><?php echo !empty($attendees) ? htmlspecialchars(implode(', ', $attendees)) : '—'; ?></div>
                 </div>
                 <div>
-                    <div class="label">Absent</div>
+                    <div class="label">Отсъствали</div>
                     <div class="value"><?php echo !empty($absent) ? htmlspecialchars(implode(', ', $absent)) : '—'; ?></div>
                 </div>
             </div>
             <div style="margin-top: 12px;">
-                <div class="label">Quorum</div>
+                <div class="label">Кворум</div>
                 <div class="value">
                     <?php if ($quorum > 0): ?>
-                        Required: <?php echo $quorum; ?> · Attended: <?php echo $attendanceCount; ?>
+                        Изискван: <?php echo $quorum; ?> · Присъствали: <?php echo $attendanceCount; ?>
                         <?php if (!$hasQuorum): ?>
-                            <span class="muted"> · No quorum</span>
+                            <span class="muted"> · Няма кворум</span>
                         <?php endif; ?>
                     <?php else: ?>
-                        <span class="muted">Not specified</span>
+                        <span class="muted">Не е зададен</span>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
 
-        <h2>Agenda & Votes</h2>
+        <h2>Дневен ред и гласуване</h2>
         <?php if (empty($questions)): ?>
-            <div class="card"><span class="muted">No questions were recorded for this meeting.</span></div>
+            <div class="card"><span class="muted">Няма записани точки по дневния ред.</span></div>
         <?php else: ?>
             <?php foreach ($questions as $index => $question): ?>
                 <?php
                 $votes = isset($question['votes']) && is_array($question['votes']) ? $question['votes'] : [];
                 $voteMap = [];
+                $voteLabels = ['yes' => 'Да', 'no' => 'Не', 'abstain' => 'Въздържал се'];
                 $isAssoc = array_keys($votes) !== range(0, count($votes) - 1);
                 if ($isAssoc) {
                     foreach ($votes as $user => $voteValue) {
@@ -299,22 +300,25 @@ $autoPrint = isset($_GET['print']) && $_GET['print'] === '1';
                 }
                 ?>
                 <div class="card">
-                    <div class="label">Question <?php echo $index + 1; ?></div>
-                    <div class="value"><?php echo htmlspecialchars($question['text'] ?? 'Untitled question'); ?></div>
+                    <div class="label">Точка <?php echo $index + 1; ?></div>
+                    <div class="value"><?php echo htmlspecialchars($question['text'] ?? 'Без заглавие'); ?></div>
                     <?php if (!empty($question['details'])): ?>
                         <div class="value" style="margin-top: 6px;"><?php echo htmlspecialchars($question['details']); ?></div>
                     <?php endif; ?>
                     <table>
                         <thead>
                             <tr>
-                                <th>Participant</th>
-                                <th>Vote</th>
+                                <th>Участник</th>
+                                <th>Вот</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (!empty($participantUsernames)): ?>
                                 <?php foreach ($participantUsernames as $username): ?>
-                                    <?php $voteValue = $voteMap[$username] ?? 'no vote'; ?>
+                                    <?php
+                                    $rawVoteValue = $voteMap[$username] ?? null;
+                                    $voteValue = $rawVoteValue !== null && isset($voteLabels[$rawVoteValue]) ? $voteLabels[$rawVoteValue] : 'няма вот';
+                                    ?>
                                     <tr>
                                         <td><?php echo htmlspecialchars($username); ?></td>
                                         <td><?php echo htmlspecialchars($voteValue); ?></td>
@@ -322,7 +326,7 @@ $autoPrint = isset($_GET['print']) && $_GET['print'] === '1';
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="2" class="muted">No participants listed for this agency.</td>
+                                    <td colspan="2" class="muted">Няма участници за този орган.</td>
                                 </tr>
                             <?php endif; ?>
                         </tbody>

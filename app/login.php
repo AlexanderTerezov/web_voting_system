@@ -11,7 +11,7 @@ $password = $_POST['password'];
 
 $users_file = '../db/users.json';
 if (!file_exists($users_file)) {
-    header('Location: index.php?error=Invalid credentials');
+    header('Location: index.php?error=Невалидни данни за вход');
     exit();
 }
 
@@ -28,12 +28,12 @@ foreach ($users as $user) {
             header('Location: dashboard.php');
             exit();
         } else {
-            header('Location: index.php?error=Invalid credentials');
+            header('Location: index.php?error=Невалидни данни за вход');
             exit();
         }
     }
 }
 
-header('Location: index.php?error=Invalid credentials');
+header('Location: index.php?error=Невалидни данни за вход');
 exit();
 ?>

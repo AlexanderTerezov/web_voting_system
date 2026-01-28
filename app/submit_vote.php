@@ -19,13 +19,13 @@ $vote = trim($_POST['vote'] ?? '');
 
 $allowedVotes = ['yes', 'no', 'abstain'];
 if ($meeting_id === '' || $question_id === '' || !in_array($vote, $allowedVotes, true)) {
-    header('Location: dashboard.php?error=Invalid vote');
+    header('Location: dashboard.php?error=Невалиден вот');
     exit();
 }
 
 $meetings_file = '../db/meetings.json';
 if (!file_exists($meetings_file)) {
-    header('Location: dashboard.php?error=Meetings file not found');
+    header('Location: dashboard.php?error=Файлът със заседания не е намерен');
     exit();
 }
 
@@ -41,7 +41,7 @@ foreach ($meetings as $index => $m) {
 }
 
 if ($meeting === null) {
-    header('Location: dashboard.php?error=Meeting not found');
+    header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
@@ -69,7 +69,7 @@ if ($_SESSION['role'] === 'Admin') {
 }
 
 if (!$hasAccess) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Access denied');
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Нямате достъп');
     exit();
 }
 
@@ -92,12 +92,12 @@ if (!empty($meeting['ended_at'])) {
 $now = new DateTime();
 
 if ($now < $meetingStart || $now > $meetingEnd) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Voting is only allowed during the meeting');
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Гласуването е позволено само по време на заседанието');
     exit();
 }
 
 if (!isset($meetings[$meetingIndex]['questions']) || !is_array($meetings[$meetingIndex]['questions'])) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=No questions found');
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Няма намерени точки');
     exit();
 }
 
@@ -114,12 +114,12 @@ foreach ($meetings[$meetingIndex]['questions'] as $qIndex => $question) {
 }
 
 if (!$questionFound) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Question not found');
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Точката не е намерена');
     exit();
 }
 
 file_put_contents($meetings_file, json_encode($meetings, JSON_PRETTY_PRINT), LOCK_EX);
 
-header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Vote recorded');
+header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Гласът е записан');
 exit();
 ?>

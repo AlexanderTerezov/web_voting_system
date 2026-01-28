@@ -10,7 +10,7 @@ if (isset($_SESSION['user'])) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sign in</title>
+  <title>Вход</title>
   <style>
     :root{
       --bg: #1110;
@@ -142,10 +142,10 @@ if (isset($_SESSION['user'])) {
   </style>
 </head>
 <body>
-  <main class="card" role="main" aria-label="Sign in">
+  <main class="card" role="main" aria-label="Вход">
     <div class="header">
-      <h1>Sign in</h1>
-      <p class="sub">Use your account details to access the dashboard.</p>
+      <h1>Вход</h1>
+      <p class="sub">Използвайте своите данни, за да влезете в таблото.</p>
     </div>
 
     <?php if (isset($_GET['error'])): ?>
@@ -153,43 +153,43 @@ if (isset($_SESSION['user'])) {
     <?php endif; ?>
 
     <?php if (isset($_GET['logout'])): ?>
-      <div class="message success">You’ve been signed out.</div>
+      <div class="message success">Излязохте успешно.</div>
     <?php endif; ?>
 
     <?php if (isset($_GET['registered'])): ?>
-      <div class="message success">Account created. Please sign in.</div>
+      <div class="message success">Акаунтът е създаден. Моля, влезте.</div>
     <?php endif; ?>
 
     <form action="login.php" method="POST" autocomplete="on">
       <div class="field">
-        <label for="username">Username</label>
+        <label for="username">Потребителско име</label>
         <input
           type="text"
           id="username"
           name="username"
           autocomplete="username"
-          placeholder="Enter your username"
+          placeholder="Въведете потребителско име"
           required
         />
       </div>
 
       <div class="field">
-        <label for="password">Password</label>
+        <label for="password">Парола</label>
         <input
           type="password"
           id="password"
           name="password"
           autocomplete="current-password"
-          placeholder="Enter your password"
+          placeholder="Въведете парола"
           required
         />
       </div>
 
-      <button class="btn" type="submit">Sign in</button>
+      <button class="btn" type="submit">Вход</button>
     </form>
 
     <div class="footer">
-      New here? <a href="register.php">Create an account</a>
+      Нов потребител? <a href="register.php">Създай акаунт</a>
     </div>
   </main>
 </body>

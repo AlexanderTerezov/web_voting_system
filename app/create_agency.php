@@ -17,7 +17,7 @@ $participants = $_POST['participants'];
 $roles = $_POST['roles'];
 
 if (empty($agency_name) || $quorum < 1 || empty($participants)) {
-    header('Location: dashboard.php?error=All fields are required');
+    header('Location: dashboard.php?error=Всички полета са задължителни');
     exit();
 }
 
@@ -36,7 +36,7 @@ foreach ($participants as $index => $username) {
 }
 
 if (empty($participantsList)) {
-    header('Location: dashboard.php?error=At least one participant is required');
+    header('Location: dashboard.php?error=Нужен е поне един участник');
     exit();
 }
 
@@ -56,6 +56,6 @@ $agencies[] = [
 
 file_put_contents($agencies_file, json_encode($agencies, JSON_PRETTY_PRINT));
 
-header('Location: dashboard.php?success=Agency created successfully');
+header('Location: dashboard.php?success=Органът е създаден успешно');
 exit();
 ?>

@@ -18,7 +18,7 @@ $participants = $_POST['participants'];
 $roles = $_POST['roles'];
 
 if (empty($agency_name) || $quorum < 1 || empty($participants)) {
-    header('Location: edit_agency.php?index=' . $agency_index . '&error=All fields are required');
+    header('Location: edit_agency.php?index=' . $agency_index . '&error=Всички полета са задължителни');
     exit();
 }
 
@@ -37,20 +37,20 @@ foreach ($participants as $index => $username) {
 }
 
 if (empty($participantsList)) {
-    header('Location: edit_agency.php?index=' . $agency_index . '&error=At least one participant is required');
+    header('Location: edit_agency.php?index=' . $agency_index . '&error=Нужен е поне един участник');
     exit();
 }
 
 $agencies_file = '../db/agencies.json';
 if (!file_exists($agencies_file)) {
-    header('Location: dashboard.php?error=No agencies found');
+    header('Location: dashboard.php?error=Няма намерени органи');
     exit();
 }
 
 $agencies = json_decode(file_get_contents($agencies_file), true);
 
 if (!isset($agencies[$agency_index])) {
-    header('Location: dashboard.php?error=Agency not found');
+    header('Location: dashboard.php?error=Органът не е намерен');
     exit();
 }
 
@@ -60,6 +60,6 @@ $agencies[$agency_index]['participants'] = $participantsList;
 
 file_put_contents($agencies_file, json_encode($agencies, JSON_PRETTY_PRINT));
 
-header('Location: dashboard.php?success=Agency updated successfully');
+header('Location: dashboard.php?success=Органът е обновен успешно');
 exit();
 ?>

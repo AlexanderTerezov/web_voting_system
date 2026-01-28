@@ -14,7 +14,7 @@ $meeting_id = isset($_GET['id']) ? $_GET['id'] : '';
 // Load meetings
 $meetings_file = '../db/meetings.json';
 if (!file_exists($meetings_file)) {
-    header('Location: dashboard.php?error=Meeting not found');
+    header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
@@ -30,7 +30,7 @@ foreach ($meetings as $m) {
 }
 
 if (!$meeting) {
-    header('Location: dashboard.php?error=Meeting not found');
+    header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
@@ -59,7 +59,7 @@ if ($_SESSION['role'] === 'Admin') {
 }
 
 if (!$hasAccess) {
-    header('Location: dashboard.php?error=Access denied');
+    header('Location: dashboard.php?error=Нямате достъп');
     exit();
 }
 
@@ -102,13 +102,15 @@ $meetingStarted = $now >= $meetingStart;
 $meetingEnded = $now > $meetingEnd;
 
 $questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $meeting['questions'] : [];
+$recurringMap = ['Once' => 'Еднократно', 'Daily' => 'Ежедневно', 'Weekly' => 'Седмично', 'Monthly' => 'Месечно'];
+$recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['recurring']]) ? $recurringMap[$meeting['recurring']] : ($meeting['recurring'] ?? '');
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meeting</title>
+    <title>Заседание</title>
     <style>
         :root{
             --bg: #1110;
@@ -406,22 +408,22 @@ $questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $
 <body>
     <div class="container">
         <div class="meeting-header">
-            <h1><?php echo htmlspecialchars($meeting['name'] ?? 'Unnamed Meeting'); ?></h1>
+            <h1><?php echo htmlspecialchars($meeting['name'] ?? 'Заседание без име'); ?></h1>
             <p style="font-size: 14px; color: var(--muted); margin: 8px 0 0 0;">
                 <?php echo htmlspecialchars($meeting['agency_name']); ?>
             </p>
             <div class="meeting-info">
-                <p><strong>Date:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
-                <p><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $meetingEnd->format('H:i'); ?> (<?php echo $duration; ?> minutes)</p>
-                <p><strong>Recurring:</strong> <?php echo htmlspecialchars($meeting['recurring']); ?></p>
-                <p><strong>Created by:</strong> <?php echo htmlspecialchars($meeting['created_by']); ?></p>
+                <p><strong>Дата:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
+                <p><strong>Час:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $meetingEnd->format('H:i'); ?> (<?php echo $duration; ?> минути)</p>
+                <p><strong>Повтаряемост:</strong> <?php echo htmlspecialchars($recurringLabel); ?></p>
+                <p><strong>Създадено от:</strong> <?php echo htmlspecialchars($meeting['created_by']); ?></p>
                 <?php if (!empty($meeting['reason'])): ?>
-                    <p><strong>Reason:</strong> <?php echo htmlspecialchars($meeting['reason']); ?></p>
+                    <p><strong>Описание / Дневен ред:</strong> <?php echo htmlspecialchars($meeting['reason']); ?></p>
                 <?php endif; ?>
             </div>
-            <a href="dashboard.php" class="back-btn">← Back to Dashboard</a>
+            <a href="dashboard.php" class="back-btn">← Назад към таблото</a>
             <?php if ($meetingEnded): ?>
-                <a href="meeting_protocol.php?id=<?php echo urlencode($meeting['id']); ?>&print=1" target="_blank" rel="noopener noreferrer" class="protocol-btn">Generate PDF Protocol</a>
+                <a href="meeting_protocol.php?id=<?php echo urlencode($meeting['id']); ?>&print=1" target="_blank" rel="noopener noreferrer" class="protocol-btn">Генерирай PDF протокол</a>
             <?php endif; ?>
         </div>
 
@@ -436,25 +438,25 @@ $questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $
             <div class="section">
                 <div class="status-banner">
                     <div>
-                        <strong>Status:</strong>
+                        <strong>Статус:</strong>
                         <?php if ($meetingActive): ?>
-                            <span class="status-pill status-active">Active</span>
+                            <span class="status-pill status-active">Активно</span>
                         <?php elseif ($meetingStarted): ?>
-                            <span class="status-pill status-ended">Ended</span>
+                            <span class="status-pill status-ended">Приключило</span>
                         <?php else: ?>
-                            <span class="status-pill status-upcoming">Upcoming</span>
+                            <span class="status-pill status-upcoming">Предстоящо</span>
                         <?php endif; ?>
                         <div class="status-meta">
-                            Starts: <?php echo $meetingStart->format('Y-m-d H:i'); ?> · Ends: <?php echo $meetingEnd->format('Y-m-d H:i'); ?>
+                            Начало: <?php echo $meetingStart->format('Y-m-d H:i'); ?> · Край: <?php echo $meetingEnd->format('Y-m-d H:i'); ?>
                         </div>
                     </div>
                     <div class="status-meta">
                         <?php if ($meetingActive): ?>
-                            Voting is open.
+                            Гласуването е отворено.
                         <?php elseif ($meetingEnded): ?>
-                            Meeting has ended.
+                            Заседанието приключи.
                         <?php else: ?>
-                            Voting opens when the meeting starts.
+                            Гласуването се отваря при начало на заседанието.
                         <?php endif; ?>
                     </div>
                 </div>
@@ -466,25 +468,25 @@ $questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $
                                     <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
                                     <input type="hidden" name="action_type" value="extend">
                                     <input type="hidden" name="extend_minutes" value="15">
-                                    <button type="submit" class="status-action-btn extend">Extend +15 min</button>
+                                    <button type="submit" class="status-action-btn extend">Удължи +15 мин</button>
                                 </form>
                                 <form action="update_meeting_time.php" method="POST">
                                     <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
                                     <input type="hidden" name="action_type" value="end_early">
-                                    <button type="submit" class="status-action-btn end" onclick="return confirm('End this meeting early?')">End Now</button>
+                                    <button type="submit" class="status-action-btn end" onclick="return confirm('Да приключим заседанието по-рано?')">Приключи сега</button>
                                 </form>
                             <?php elseif ($meetingStarted && !$meetingEnded): ?>
                                 <form action="update_meeting_time.php" method="POST">
                                     <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
                                     <input type="hidden" name="action_type" value="extend">
                                     <input type="hidden" name="extend_minutes" value="15">
-                                    <button type="submit" class="status-action-btn extend">Extend +15 min</button>
+                                    <button type="submit" class="status-action-btn extend">Удължи +15 мин</button>
                                 </form>
                             <?php else: ?>
                                 <form action="update_meeting_time.php" method="POST">
                                     <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
                                     <input type="hidden" name="action_type" value="start_early">
-                                    <button type="submit" class="status-action-btn extend" onclick="return confirm('Start this meeting now?')">Start Now</button>
+                                    <button type="submit" class="status-action-btn extend" onclick="return confirm('Да започнем заседанието сега?')">Започни сега</button>
                                 </form>
                             <?php endif; ?>
                         </div>
@@ -493,53 +495,53 @@ $questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $
             </div>
 
             <div class="section">
-                <h2>Meeting Comments / Minutes</h2>
+                <h2>Коментари / Протокол</h2>
                 <?php if (!empty($meeting['comments'])): ?>
                     <p class="question-desc"><?php echo htmlspecialchars($meeting['comments']); ?></p>
                 <?php else: ?>
-                    <p class="empty-message">No comments added yet.</p>
+                    <p class="empty-message">Все още няма добавени коментари.</p>
                 <?php endif; ?>
 
                 <?php if ($canManageQuestions && $meetingEnded): ?>
                     <form action="save_meeting_comments.php" method="POST" style="margin-top: 12px;">
                         <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
                         <div class="form-group">
-                            <label for="meeting_comments">Add / Update Comments</label>
-                            <textarea id="meeting_comments" name="meeting_comments" placeholder="Summarize discussion, decisions, and follow-ups."><?php echo htmlspecialchars($meeting['comments'] ?? ''); ?></textarea>
+                            <label for="meeting_comments">Добави / Обнови коментари</label>
+                            <textarea id="meeting_comments" name="meeting_comments" placeholder="Обобщение на дискусии, решения и последващи действия."><?php echo htmlspecialchars($meeting['comments'] ?? ''); ?></textarea>
                         </div>
-                        <button type="submit" class="submit-btn">Save Comments</button>
+                        <button type="submit" class="submit-btn">Запази коментарите</button>
                     </form>
                 <?php elseif ($canManageQuestions && !$meetingEnded): ?>
-                    <p class="status-meta">Comments can be added after the meeting ends.</p>
+                    <p class="status-meta">Коментарите могат да се добавят след края на заседанието.</p>
                 <?php endif; ?>
             </div>
 
             <?php if ($canManageQuestions): ?>
                 <div class="section">
-                    <h2>Add Agenda Point / Question</h2>
+                    <h2>Добави точка от дневния ред</h2>
                     <form action="add_question.php" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
                         <div class="form-group">
-                            <label for="question_text">Question / Talking Point</label>
-                            <input type="text" id="question_text" name="question_text" required placeholder="e.g., Approve the 2026 budget proposal">
+                            <label for="question_text">Точка / Въпрос</label>
+                            <input type="text" id="question_text" name="question_text" required placeholder="напр. Приемане на бюджет 2026">
                         </div>
                         <div class="form-group">
-                            <label for="question_details">Details (optional)</label>
-                            <textarea id="question_details" name="question_details" placeholder="Add background, context, or proposal text."></textarea>
+                            <label for="question_details">Детайли (по желание)</label>
+                            <textarea id="question_details" name="question_details" placeholder="Добавете контекст или предложение."></textarea>
                         </div>
                         <div class="form-group">
-                            <label for="attachments">Attachments (images, PDF, Office docs)</label>
+                            <label for="attachments">Прикачени файлове (изображения, PDF, Office документи)</label>
                             <input type="file" id="attachments" name="attachments[]" multiple>
                         </div>
-                        <button type="submit" class="submit-btn">Add Question</button>
+                        <button type="submit" class="submit-btn">Добави точка</button>
                     </form>
                 </div>
             <?php endif; ?>
 
             <div class="section">
-                <h2>Agenda & Voting</h2>
+                <h2>Дневен ред и гласуване</h2>
                 <?php if (empty($questions)): ?>
-                    <p class="empty-message">No questions added yet.</p>
+                    <p class="empty-message">Няма добавени точки.</p>
                 <?php else: ?>
                     <div class="questions-list">
                         <?php foreach ($questions as $index => $question): ?>
@@ -571,12 +573,14 @@ $questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $
                                     }
                                 }
                             }
+                            $voteLabels = ['yes' => 'Да', 'no' => 'Не', 'abstain' => 'Въздържал се'];
+                            $userVoteLabel = $userVote !== null && isset($voteLabels[$userVote]) ? $voteLabels[$userVote] : null;
                             ?>
                             <div class="question-card">
                                 <div class="question-header">
                                     <div class="question-title"><?php echo ($index + 1) . '. ' . htmlspecialchars($question['text'] ?? 'Untitled question'); ?></div>
                                     <div class="question-meta">
-                                        Added by <?php echo htmlspecialchars($question['created_by'] ?? 'Unknown'); ?>
+                                        Добавено от <?php echo htmlspecialchars($question['created_by'] ?? 'Непознат'); ?>
                                         <?php if (!empty($question['created_at'])): ?>
                                             · <?php echo htmlspecialchars($question['created_at']); ?>
                                         <?php endif; ?>
@@ -612,9 +616,9 @@ $questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $
 
                                 <div class="vote-area">
                                     <div class="vote-counts">
-                                        Yes: <?php echo $counts['yes']; ?> · No: <?php echo $counts['no']; ?> · No Answer: <?php echo $counts['abstain']; ?>
-                                        <?php if ($userVote): ?>
-                                            · Your vote: <?php echo htmlspecialchars(ucfirst($userVote)); ?>
+                                        Да: <?php echo $counts['yes']; ?> · Не: <?php echo $counts['no']; ?> · Въздържал се: <?php echo $counts['abstain']; ?>
+                                        <?php if ($userVoteLabel): ?>
+                                            · Вашият вот: <?php echo htmlspecialchars($userVoteLabel); ?>
                                         <?php endif; ?>
                                     </div>
                                     <?php if ($meetingActive): ?>
@@ -622,13 +626,13 @@ $questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $
                                             <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
                                             <input type="hidden" name="question_id" value="<?php echo htmlspecialchars($question['id'] ?? ''); ?>">
                                             <div class="vote-buttons">
-                                                <button type="submit" name="vote" value="yes" class="vote-btn yes <?php echo $userVote === 'yes' ? 'active' : ''; ?>">Yes</button>
-                                                <button type="submit" name="vote" value="no" class="vote-btn no <?php echo $userVote === 'no' ? 'active' : ''; ?>">No</button>
-                                                <button type="submit" name="vote" value="abstain" class="vote-btn abstain <?php echo $userVote === 'abstain' ? 'active' : ''; ?>">No Answer</button>
+                                                <button type="submit" name="vote" value="yes" class="vote-btn yes <?php echo $userVote === 'yes' ? 'active' : ''; ?>">Да</button>
+                                                <button type="submit" name="vote" value="no" class="vote-btn no <?php echo $userVote === 'no' ? 'active' : ''; ?>">Не</button>
+                                                <button type="submit" name="vote" value="abstain" class="vote-btn abstain <?php echo $userVote === 'abstain' ? 'active' : ''; ?>">Въздържал се</button>
                                             </div>
                                         </form>
                                     <?php else: ?>
-                                        <div class="vote-disabled">Voting is available only while the meeting is active.</div>
+                                        <div class="vote-disabled">Гласуването е възможно само по време на заседанието.</div>
                                     <?php endif; ?>
                                 </div>
                             </div>

@@ -29,6 +29,7 @@ if (file_exists($meetings_file)) {
 // Get all meetings for user
 $userMeetings = [];
 $now = new DateTime();
+$recurringMap = ['Once' => 'Еднократно', 'Daily' => 'Ежедневно', 'Weekly' => 'Седмично', 'Monthly' => 'Месечно'];
 
 foreach ($meetings as $meeting) {
     // Calculate meeting end time based on duration
@@ -91,7 +92,7 @@ $pageMeetings = array_slice($userMeetings, $start, $perPage);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>All Meetings</title>
+    <title>Всички заседания</title>
     <style>
         :root{
             --bg: #1110;
@@ -293,21 +294,21 @@ $pageMeetings = array_slice($userMeetings, $start, $perPage);
 </head>
 <body>
     <div class="container">
-        <a href="dashboard.php" class="back-btn">← Back to Dashboard</a>
+        <a href="dashboard.php" class="back-btn">← Назад към таблото</a>
         
         <div class="header">
-            <h1>All Meetings</h1>
+            <h1>Всички заседания</h1>
             <p style="color: var(--muted); margin: 8px 0 0 0;">
-                Complete history of all meetings you have access to
+                Пълна история на заседанията, до които имате достъп
             </p>
         </div>
 
         <div class="meetings-section">
             <div class="filter-buttons">
-                <a href="?filter=all&per_page=<?php echo $perPage; ?>" class="filter-btn <?php echo (!isset($_GET['filter']) || $_GET['filter'] === 'all') ? 'active' : ''; ?>">All Meetings</a>
-                <a href="?filter=active&per_page=<?php echo $perPage; ?>" class="filter-btn <?php echo (isset($_GET['filter']) && $_GET['filter'] === 'active') ? 'active' : ''; ?>">Active</a>
-                <a href="?filter=upcoming&per_page=<?php echo $perPage; ?>" class="filter-btn <?php echo (isset($_GET['filter']) && $_GET['filter'] === 'upcoming') ? 'active' : ''; ?>">Upcoming</a>
-                <a href="?filter=past&per_page=<?php echo $perPage; ?>" class="filter-btn <?php echo (isset($_GET['filter']) && $_GET['filter'] === 'past') ? 'active' : ''; ?>">Past</a>
+                <a href="?filter=all&per_page=<?php echo $perPage; ?>" class="filter-btn <?php echo (!isset($_GET['filter']) || $_GET['filter'] === 'all') ? 'active' : ''; ?>">Всички</a>
+                <a href="?filter=active&per_page=<?php echo $perPage; ?>" class="filter-btn <?php echo (isset($_GET['filter']) && $_GET['filter'] === 'active') ? 'active' : ''; ?>">Активни</a>
+                <a href="?filter=upcoming&per_page=<?php echo $perPage; ?>" class="filter-btn <?php echo (isset($_GET['filter']) && $_GET['filter'] === 'upcoming') ? 'active' : ''; ?>">Предстоящи</a>
+                <a href="?filter=past&per_page=<?php echo $perPage; ?>" class="filter-btn <?php echo (isset($_GET['filter']) && $_GET['filter'] === 'past') ? 'active' : ''; ?>">Минали</a>
             </div>
 
             <?php
@@ -333,7 +334,7 @@ $pageMeetings = array_slice($userMeetings, $start, $perPage);
 
             <?php if (empty($pageMeetings)): ?>
                 <div class="empty-state">
-                    <p>No meetings found</p>
+                    <p>Няма намерени заседания</p>
                 </div>
             <?php else: ?>
                 <?php foreach ($pageMeetings as $meeting): ?>
@@ -371,29 +372,30 @@ $pageMeetings = array_slice($userMeetings, $start, $perPage);
                             $endTime = $overrideEnd;
                         }
                     }
+                    $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['recurring']]) ? $recurringMap[$meeting['recurring']] : ($meeting['recurring'] ?? '');
                     ?>
                     <div class="meeting-card">
                         <div class="meeting-name">
-                            <?php echo htmlspecialchars($meeting['name'] ?? 'Unnamed Meeting'); ?>
+                            <?php echo htmlspecialchars($meeting['name'] ?? 'Заседание без име'); ?>
                             <?php if ($meeting['is_past']): ?>
-                                <span class="meeting-status status-past">Past</span>
+                                <span class="meeting-status status-past">Минало</span>
                             <?php elseif (!empty($meeting['is_active'])): ?>
-                                <span class="meeting-status status-active">Active</span>
+                                <span class="meeting-status status-active">Активно</span>
                             <?php else: ?>
-                                <span class="meeting-status status-upcoming">Upcoming</span>
+                                <span class="meeting-status status-upcoming">Предстоящо</span>
                             <?php endif; ?>
                         </div>
                         <h3><?php echo htmlspecialchars($meeting['agency_name']); ?></h3>
-                        <p class="meeting-info"><strong>Date:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
-                        <p class="meeting-info"><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $endTime->format('H:i'); ?> (<?php echo $duration; ?> minutes)</p>
-                        <p class="meeting-info"><strong>Recurring:</strong> <?php echo htmlspecialchars($meeting['recurring']); ?></p>
-                        <p class="meeting-info"><strong>Created by:</strong> <?php echo htmlspecialchars($meeting['created_by']); ?></p>
+                        <p class="meeting-info"><strong>Дата:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
+                        <p class="meeting-info"><strong>Час:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $endTime->format('H:i'); ?> (<?php echo $duration; ?> минути)</p>
+                        <p class="meeting-info"><strong>Повтаряемост:</strong> <?php echo htmlspecialchars($recurringLabel); ?></p>
+                        <p class="meeting-info"><strong>Създадено от:</strong> <?php echo htmlspecialchars($meeting['created_by']); ?></p>
                         <div style="margin-top: 10px;">
-                            <a href="view_meeting.php?id=<?php echo $meeting['id']; ?>" class="view-meeting-btn">View Meeting</a>
+                            <a href="view_meeting.php?id=<?php echo $meeting['id']; ?>" class="view-meeting-btn">Виж заседание</a>
                             <?php if ($canDelete): ?>
                                 <form action="delete_meeting.php" method="POST" style="display: inline;">
                                     <input type="hidden" name="meeting_id" value="<?php echo $meeting['id']; ?>">
-                                    <button type="submit" class="delete-meeting-btn" onclick="return confirm('Are you sure you want to delete this meeting?')">Delete</button>
+                                    <button type="submit" class="delete-meeting-btn" onclick="return confirm('Сигурни ли сте, че искате да изтриете това заседание?')">Изтрий</button>
                                 </form>
                             <?php endif; ?>
                         </div>
@@ -403,9 +405,9 @@ $pageMeetings = array_slice($userMeetings, $start, $perPage);
                 <!-- Pagination -->
                 <div class="pagination-controls">
                     <div class="pagination-info">
-                        Showing <?php echo $start + 1; ?>-<?php echo min($start + $perPage, $totalFiltered); ?> of <?php echo $totalFiltered; ?>
+                        Показва <?php echo $start + 1; ?>-<?php echo min($start + $perPage, $totalFiltered); ?> от <?php echo $totalFiltered; ?>
                         <label>
-                            Items per page:
+                            Записи на страница:
                             <select class="per-page-select" onchange="window.location.href='?page=1&per_page=' + this.value + '&filter=<?php echo $filter; ?>'">
                                 <option value="5" <?php echo $perPage === 5 ? 'selected' : ''; ?>>5</option>
                                 <option value="10" <?php echo $perPage === 10 ? 'selected' : ''; ?>>10</option>
@@ -416,10 +418,10 @@ $pageMeetings = array_slice($userMeetings, $start, $perPage);
                     </div>
                     <div class="pagination-buttons">
                         <a href="?page=<?php echo max(1, $currentPage - 1); ?>&per_page=<?php echo $perPage; ?>&filter=<?php echo $filter; ?>" 
-                           class="page-btn <?php echo $currentPage === 1 ? 'disabled' : ''; ?>">Previous</a>
-                        <span style="padding: 0 8px; color: var(--muted);">Page <?php echo $currentPage; ?> of <?php echo max(1, $totalPages); ?></span>
+                           class="page-btn <?php echo $currentPage === 1 ? 'disabled' : ''; ?>">Назад</a>
+                        <span style="padding: 0 8px; color: var(--muted);">Страница <?php echo $currentPage; ?> от <?php echo max(1, $totalPages); ?></span>
                         <a href="?page=<?php echo min($totalPages, $currentPage + 1); ?>&per_page=<?php echo $perPage; ?>&filter=<?php echo $filter; ?>" 
-                           class="page-btn <?php echo $currentPage === $totalPages || $totalPages === 0 ? 'disabled' : ''; ?>">Next</a>
+                           class="page-btn <?php echo $currentPage === $totalPages || $totalPages === 0 ? 'disabled' : ''; ?>">Напред</a>
                     </div>
                 </div>
             <?php endif; ?>

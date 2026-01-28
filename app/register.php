@@ -10,7 +10,7 @@ if (isset($_SESSION['user'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register</title>
+    <title>Регистрация</title>
     <style>
         :root{
             --bg: #1110;
@@ -120,32 +120,32 @@ if (isset($_SESSION['user'])) {
 </head>
 <body>
     <div class="container">
-        <h2>Register</h2>
-        <p class="sub">Create your account to access the dashboard.</p>
+        <h2>Регистрация</h2>
+        <p class="sub">Създайте акаунт, за да достъпите таблото.</p>
         <?php if (isset($_GET['error'])): ?>
             <div class="message error"><?php echo htmlspecialchars($_GET['error']); ?></div>
         <?php endif; ?>
         <form action="register_process.php" method="POST">
             <div class="form-group">
-                <label for="username">Username</label>
+                <label for="username">Потребителско име</label>
                 <input type="text" id="username" name="username" required minlength="3">
             </div>
             <div class="form-group">
-                <label for="email">Email</label>
+                <label for="email">Имейл</label>
                 <input type="email" id="email" name="email" required>
             </div>
             <div class="form-group">
-                <label for="password">Password</label>
+                <label for="password">Парола</label>
                 <input type="password" id="password" name="password" required minlength="6">
             </div>
             <div class="form-group">
-                <label for="confirm_password">Confirm Password</label>
+                <label for="confirm_password">Потвърди парола</label>
                 <input type="password" id="confirm_password" name="confirm_password" required>
             </div>
-            <button type="submit">Register</button>
+            <button type="submit">Регистрация</button>
         </form>
         <div class="link-text">
-            Already have an account? <a href="index.php">Login here</a>
+            Вече имате акаунт? <a href="index.php">Вход</a>
         </div>
     </div>
 </body>

@@ -13,6 +13,7 @@ $username = $_SESSION['user'];
 $email = $_SESSION['email'];
 $role = $_SESSION['role'];
 $loginTime = $_SESSION['login_time'];
+$roleLabel = $role === 'Admin' ? 'Администратор' : ($role === 'User' ? 'Потребител' : $role);
 
 // Load agencies
 $agencies_file = '../db/agencies.json';
@@ -62,6 +63,7 @@ if ($role !== 'Admin') {
 $upcomingMeetings = [];
 $pastMeetings = [];
 $now = new DateTime();
+$recurringMap = ['Once' => 'Еднократно', 'Daily' => 'Ежедневно', 'Weekly' => 'Седмично', 'Monthly' => 'Месечно'];
 
 foreach ($meetings as $meeting) {
     // Calculate meeting end time based on duration
@@ -126,7 +128,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
+    <title>Табло</title>
     <style>
         :root{
             --bg: #1110;
@@ -413,18 +415,18 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
         <!-- Header -->
         <div class="header">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h1>Dashboard</h1>
+                <h1>Табло</h1>
                 <div style="display: flex; gap: 10px;">
-                    <a href="all_meetings.php" class="logout-btn" style="background: var(--accent); color: #fff;">View All Meetings</a>
-                    <a href="logout.php" class="logout-btn">Logout</a>
+                    <a href="all_meetings.php" class="logout-btn" style="background: var(--accent); color: #fff;">Всички заседания</a>
+                    <a href="logout.php" class="logout-btn">Изход</a>
                 </div>
             </div>
             <div class="user-info">
-                <p><strong>Username:</strong> <?php echo htmlspecialchars($username); ?></p>
-                <p><strong>Email:</strong> <?php echo htmlspecialchars($email); ?></p>
-                <p><strong>Role:</strong> <span class="user-role <?php echo $role === 'Admin' ? 'admin-role' : 'user-role-badge'; ?>"><?php echo htmlspecialchars($role); ?></span></p>
-                <p><strong>Login Time:</strong> <?php echo htmlspecialchars($loginTime); ?></p>
-                <p><strong>Current Server Time:</strong> <?php echo date('Y-m-d H:i:s'); ?> (<?php echo date_default_timezone_get(); ?>)</p>
+                <p><strong>Потребителско име:</strong> <?php echo htmlspecialchars($username); ?></p>
+                <p><strong>Имейл:</strong> <?php echo htmlspecialchars($email); ?></p>
+                <p><strong>Роля:</strong> <span class="user-role <?php echo $role === 'Admin' ? 'admin-role' : 'user-role-badge'; ?>"><?php echo htmlspecialchars($roleLabel); ?></span></p>
+                <p><strong>Време на вход:</strong> <?php echo htmlspecialchars($loginTime); ?></p>
+                <p><strong>Текущо време на сървъра:</strong> <?php echo date('Y-m-d H:i:s'); ?> (<?php echo date_default_timezone_get(); ?>)</p>
             </div>
         </div>
 
@@ -432,7 +434,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
         <?php if (!empty($upcomingMeetings)): ?>
         <div class="meetings-section">
             <div class="meeting-header-wrapper">
-                <h2>Upcoming Meetings</h2>
+                <h2>Предстоящи заседания</h2>
             </div>
             <?php foreach ($upcomingMeetings as $meeting): ?>
                 <?php
@@ -471,26 +473,27 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                     }
                 }
                 $isActive = $now >= $meetingStart && $now <= $endTime;
+                $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['recurring']]) ? $recurringMap[$meeting['recurring']] : ($meeting['recurring'] ?? '');
                 ?>
                 <div class="meeting-card">
                     <div class="meeting-name">
-                        <?php echo htmlspecialchars($meeting['name'] ?? 'Unnamed Meeting'); ?>
+                        <?php echo htmlspecialchars($meeting['name'] ?? 'Заседание без име'); ?>
                         <?php if ($isActive): ?>
-                            <span class="meeting-status status-active">Active</span>
+                            <span class="meeting-status status-active">Активно</span>
                         <?php else: ?>
-                            <span class="meeting-status status-upcoming">Upcoming</span>
+                            <span class="meeting-status status-upcoming">Предстоящо</span>
                         <?php endif; ?>
                     </div>
                     <h3><?php echo htmlspecialchars($meeting['agency_name']); ?></h3>
-                    <p class="meeting-info"><strong>Date:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
-                    <p class="meeting-info"><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $endTime->format('H:i'); ?> (<?php echo $duration; ?> minutes)</p>
-                    <p class="meeting-info"><strong>Recurring:</strong> <?php echo htmlspecialchars($meeting['recurring']); ?></p>
+                    <p class="meeting-info"><strong>Дата:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
+                    <p class="meeting-info"><strong>Час:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $endTime->format('H:i'); ?> (<?php echo $duration; ?> минути)</p>
+                    <p class="meeting-info"><strong>Повтаряемост:</strong> <?php echo htmlspecialchars($recurringLabel); ?></p>
                     <div style="margin-top: 10px;">
-                        <a href="view_meeting.php?id=<?php echo $meeting['id']; ?>" class="view-meeting-btn">View Meeting</a>
+                        <a href="view_meeting.php?id=<?php echo $meeting['id']; ?>" class="view-meeting-btn">Виж заседание</a>
                         <?php if ($canDelete): ?>
                             <form action="delete_meeting.php" method="POST" style="display: inline;">
                                 <input type="hidden" name="meeting_id" value="<?php echo $meeting['id']; ?>">
-                                <button type="submit" class="delete-meeting-btn" onclick="return confirm('Are you sure you want to delete this meeting?')">Delete</button>
+                                <button type="submit" class="delete-meeting-btn" onclick="return confirm('Сигурни ли сте, че искате да изтриете това заседание?')">Изтрий</button>
                             </form>
                         <?php endif; ?>
                     </div>
@@ -503,7 +506,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
         <?php if (!empty($recentPastMeetings)): ?>
         <div class="meetings-section">
             <div class="meeting-header-wrapper">
-                <h2>Recent Past Meetings</h2>
+                <h2>Скорошни минали заседания</h2>
             </div>
             <?php foreach ($recentPastMeetings as $meeting): ?>
                 <?php
@@ -541,22 +544,23 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                         $endTime = $overrideEnd;
                     }
                 }
+                $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['recurring']]) ? $recurringMap[$meeting['recurring']] : ($meeting['recurring'] ?? '');
                 ?>
                 <div class="meeting-card">
                     <div class="meeting-name">
-                        <?php echo htmlspecialchars($meeting['name'] ?? 'Unnamed Meeting'); ?>
-                        <span class="meeting-status status-past">Past</span>
+                        <?php echo htmlspecialchars($meeting['name'] ?? 'Заседание без име'); ?>
+                        <span class="meeting-status status-past">Минало</span>
                     </div>
                     <h3><?php echo htmlspecialchars($meeting['agency_name']); ?></h3>
-                    <p class="meeting-info"><strong>Date:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
-                    <p class="meeting-info"><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $endTime->format('H:i'); ?> (<?php echo $duration; ?> minutes)</p>
-                    <p class="meeting-info"><strong>Recurring:</strong> <?php echo htmlspecialchars($meeting['recurring']); ?></p>
+                    <p class="meeting-info"><strong>Дата:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>
+                    <p class="meeting-info"><strong>Час:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $endTime->format('H:i'); ?> (<?php echo $duration; ?> минути)</p>
+                    <p class="meeting-info"><strong>Повтаряемост:</strong> <?php echo htmlspecialchars($recurringLabel); ?></p>
                     <div style="margin-top: 10px;">
-                        <a href="view_meeting.php?id=<?php echo $meeting['id']; ?>" class="view-meeting-btn">View Meeting</a>
+                        <a href="view_meeting.php?id=<?php echo $meeting['id']; ?>" class="view-meeting-btn">Виж заседание</a>
                         <?php if ($canDelete): ?>
                             <form action="delete_meeting.php" method="POST" style="display: inline;">
                                 <input type="hidden" name="meeting_id" value="<?php echo $meeting['id']; ?>">
-                                <button type="submit" class="delete-meeting-btn" onclick="return confirm('Are you sure you want to delete this meeting?')">Delete</button>
+                                <button type="submit" class="delete-meeting-btn" onclick="return confirm('Сигурни ли сте, че искате да изтриете това заседание?')">Изтрий</button>
                             </form>
                         <?php endif; ?>
                     </div>
@@ -565,9 +569,9 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
         </div>
         <?php elseif (empty($upcomingMeetings)): ?>
         <div class="meetings-section">
-            <h2>Meetings</h2>
+            <h2>Заседания</h2>
             <div class="empty-state">
-                <p>No meetings scheduled yet</p>
+                <p>Все още няма насрочени заседания</p>
             </div>
         </div>
         <?php endif; ?>
@@ -575,7 +579,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
         <?php if ($role === 'Admin'): ?>
             <!-- Admin Panel: Create Agency -->
             <div class="admin-panel">
-                <h2>Create New Agency</h2>
+                <h2>Създай нов орган</h2>
                 <?php if (isset($_GET['success'])): ?>
                     <div class="message success"><?php echo htmlspecialchars($_GET['success']); ?></div>
                 <?php endif; ?>
@@ -585,21 +589,21 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                 
                 <form action="create_agency.php" method="POST" id="agencyForm">
                     <div class="form-group">
-                        <label for="agency_name">Agency Name</label>
+                        <label for="agency_name">Име на орган</label>
                         <input type="text" id="agency_name" name="agency_name" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="quorum">Quorum</label>
+                        <label for="quorum">Кворум</label>
                         <input type="number" id="quorum" name="quorum" min="1" step="1" inputmode="numeric" pattern="[0-9]*" required>
                     </div>
                     
                     <div class="form-group">
-                        <label>Participants</label>
+                        <label>Участници</label>
                         <div id="participantsContainer">
                             <div class="participant-item">
                                 <select name="participants[]" required>
-                                    <option value="">Select User</option>
+                                    <option value="">Изберете потребител</option>
                                     <?php foreach ($users as $user): ?>
                                         <option value="<?php echo htmlspecialchars($user['username']); ?>">
                                             <?php echo htmlspecialchars($user['username']); ?>
@@ -607,34 +611,34 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                                     <?php endforeach; ?>
                                 </select>
                                 <select name="roles[]" required>
-                                    <option value="member">Member</option>
-                                    <option value="secretary">Secretary</option>
+                                    <option value="member">Член</option>
+                                    <option value="secretary">Секретар</option>
                                 </select>
-                                <button type="button" class="remove-participant-btn" onclick="removeParticipant(this)">Remove</button>
+                                <button type="button" class="remove-participant-btn" onclick="removeParticipant(this)">Премахни</button>
                             </div>
                         </div>
-                        <button type="button" class="add-participant-btn" onclick="addParticipant()">+ Add Participant</button>
+                        <button type="button" class="add-participant-btn" onclick="addParticipant()">+ Добави участник</button>
                     </div>
                     
-                    <button type="submit" class="submit-btn">Create Agency</button>
+                    <button type="submit" class="submit-btn">Създай орган</button>
                 </form>
             </div>
 
             <!-- Admin View: All Agencies -->
             <div class="agencies-section">
-                <h2>All Agencies</h2>
+                <h2>Всички органи</h2>
                 <?php if (empty($agencies)): ?>
-                    <p style="color: #999; text-align: center;">No agencies created yet.</p>
+                    <p style="color: #999; text-align: center;">Все още няма създадени органи.</p>
                 <?php else: ?>
                     <?php foreach ($agencies as $index => $agency): ?>
                         <div class="agency-card">
                             <h3><?php echo htmlspecialchars($agency['name']); ?></h3>
-                            <p class="agency-info"><strong>Quorum:</strong> <?php echo htmlspecialchars($agency['quorum']); ?></p>
-                            <p class="agency-info"><strong>Total Participants:</strong> <?php echo count($agency['participants']); ?></p>
-                            <p class="agency-info"><strong>Created:</strong> <?php echo htmlspecialchars($agency['created_at']); ?></p>
+                            <p class="agency-info"><strong>Кворум:</strong> <?php echo htmlspecialchars($agency['quorum']); ?></p>
+                            <p class="agency-info"><strong>Общо участници:</strong> <?php echo count($agency['participants']); ?></p>
+                            <p class="agency-info"><strong>Създаден:</strong> <?php echo htmlspecialchars($agency['created_at']); ?></p>
                             
                             <div class="participant-list">
-                                <strong>Participants:</strong><br>
+                                <strong>Участници:</strong><br>
                                 <?php 
                                 $adminIsSecretary = false;
                                 foreach ($agency['participants'] as $participant): 
@@ -644,7 +648,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                                 ?>
                                     <span class="participant <?php echo $participant['role'] === 'secretary' ? 'secretary' : ''; ?>">
                                         <?php echo htmlspecialchars($participant['username']); ?>
-                                        <?php echo $participant['role'] === 'secretary' ? '(Secretary)' : ''; ?>
+                                        <?php echo $participant['role'] === 'secretary' ? '(Секретар)' : ''; ?>
                                     </span>
                                 <?php endforeach; ?>
                             </div>
@@ -652,13 +656,13 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                             <div class="agency-actions">
                                 <form action="delete_agency.php" method="POST" class="inline-form">
                                     <input type="hidden" name="agency_index" value="<?php echo $index; ?>">
-                                    <button type="submit" class="delete-agency-btn" onclick="return confirm('Are you sure you want to delete this agency?')">Delete Agency</button>
+                                    <button type="submit" class="delete-agency-btn" onclick="return confirm('Сигурни ли сте, че искате да изтриете този орган?')">Изтрий орган</button>
                                 </form>
 
-                                <a href="edit_agency.php?index=<?php echo $index; ?>" class="edit-agency-btn">Edit Agency</a>
+                                <a href="edit_agency.php?index=<?php echo $index; ?>" class="edit-agency-btn">Редактирай орган</a>
 
                                 <?php if ($adminIsSecretary): ?>
-                                    <a href="create_meeting.php?agency_index=<?php echo $index; ?>" class="create-meeting-btn">Create Meeting</a>
+                                    <a href="create_meeting.php?agency_index=<?php echo $index; ?>" class="create-meeting-btn">Създай заседание</a>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -669,35 +673,35 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
         <?php else: ?>
             <!-- User View: Their Agencies Only -->
             <div class="agencies-section">
-                <h2>My Agencies</h2>
+                <h2>Моите органи</h2>
                 <?php if (empty($userAgencies)): ?>
-                    <p style="color: #999; text-align: center;">You are not a member of any agency yet.</p>
+                    <p style="color: #999; text-align: center;">Все още не сте член на орган.</p>
                 <?php else: ?>
                     <?php foreach ($userAgencies as $item): ?>
                         <?php $agency = $item['agency']; $userRole = $item['role']; $agencyIndex = $item['index']; ?>
                         <div class="agency-card">
                             <h3><?php echo htmlspecialchars($agency['name']); ?></h3>
-                            <p class="agency-info"><strong>Your Role:</strong> 
+                            <p class="agency-info"><strong>Вашата роля:</strong> 
                                 <span class="participant <?php echo $userRole === 'secretary' ? 'secretary' : ''; ?>">
-                                    <?php echo $userRole === 'secretary' ? 'Secretary' : 'Member'; ?>
+                                    <?php echo $userRole === 'secretary' ? 'Секретар' : 'Член'; ?>
                                 </span>
                             </p>
-                            <p class="agency-info"><strong>Quorum:</strong> <?php echo htmlspecialchars($agency['quorum']); ?></p>
-                            <p class="agency-info"><strong>Total Participants:</strong> <?php echo count($agency['participants']); ?></p>
+                            <p class="agency-info"><strong>Кворум:</strong> <?php echo htmlspecialchars($agency['quorum']); ?></p>
+                            <p class="agency-info"><strong>Общо участници:</strong> <?php echo count($agency['participants']); ?></p>
                             
                             <div class="participant-list">
-                                <strong>All Participants:</strong><br>
+                                <strong>Всички участници:</strong><br>
                                 <?php foreach ($agency['participants'] as $participant): ?>
                                     <span class="participant <?php echo $participant['role'] === 'secretary' ? 'secretary' : ''; ?>">
                                         <?php echo htmlspecialchars($participant['username']); ?>
-                                        <?php echo $participant['role'] === 'secretary' ? '(Secretary)' : ''; ?>
+                                        <?php echo $participant['role'] === 'secretary' ? '(Секретар)' : ''; ?>
                                     </span>
                                 <?php endforeach; ?>
                             </div>
                             
                             <?php if ($userRole === 'secretary'): ?>
                                 <div class="agency-actions">
-                                    <a href="create_meeting.php?agency_index=<?php echo $agencyIndex; ?>" class="create-meeting-btn">Create Meeting</a>
+                                    <a href="create_meeting.php?agency_index=<?php echo $agencyIndex; ?>" class="create-meeting-btn">Създай заседание</a>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -722,7 +726,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
             if (container.children.length > 1) {
                 btn.parentElement.remove();
             } else {
-                alert('At least one participant is required');
+                alert('Нужен е поне един участник');
             }
         }
     </script>

@@ -20,12 +20,12 @@ if (file_exists($agencies_file)) {
     if (isset($agencies[$agency_index])) {
         array_splice($agencies, $agency_index, 1);
         file_put_contents($agencies_file, json_encode($agencies, JSON_PRETTY_PRINT));
-        header('Location: dashboard.php?success=Agency deleted successfully');
+        header('Location: dashboard.php?success=Органът е изтрит успешно');
     } else {
-        header('Location: dashboard.php?error=Agency not found');
+        header('Location: dashboard.php?error=Органът не е намерен');
     }
 } else {
-    header('Location: dashboard.php?error=No agencies found');
+    header('Location: dashboard.php?error=Няма намерени органи');
 }
 exit();
 ?>
