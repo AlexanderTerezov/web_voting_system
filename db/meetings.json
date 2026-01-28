@@ -43,7 +43,10 @@
                 "created_by": "Admin",
                 "created_at": "2026-01-27 20:27:51"
             }
-        ]
+        ],
+        "series_id": "meeting_6977e422d57902.51703955",
+        "started_at": "2026-01-28 18:01:25",
+        "ended_at": "2026-01-28 18:01:31"
     },
     {
         "id": "meeting_6978b2ee74c927.56627982",
@@ -53,7 +56,8 @@
         "time": "18:21",
         "recurring": "Once",
         "created_by": "swordopepe",
-        "created_at": "2026-01-27 14:43:26"
+        "created_at": "2026-01-27 14:43:26",
+        "series_id": "meeting_6978b2ee74c927.56627982"
     },
     {
         "id": "meeting_6978c963794838.45540880",
@@ -77,7 +81,8 @@
                 "created_by": "Admin",
                 "created_at": "2026-01-27 17:15:28"
             }
-        ]
+        ],
+        "series_id": "meeting_6978c963794838.45540880"
     },
     {
         "id": "meeting_6978cb71278a53.89426152",
@@ -88,7 +93,8 @@
         "time": "22:12",
         "recurring": "Monthly",
         "created_by": "test",
-        "created_at": "2026-01-27 14:28:01"
+        "created_at": "2026-01-27 14:28:01",
+        "series_id": "meeting_6978cb71278a53.89426152"
     },
     {
         "id": "meeting_6978cb8dd7f069.13268682",
@@ -99,7 +105,8 @@
         "time": "12:39",
         "recurring": "Weekly",
         "created_by": "test",
-        "created_at": "2026-01-27 14:28:29"
+        "created_at": "2026-01-27 14:28:29",
+        "series_id": "meeting_6978cb8dd7f069.13268682"
     },
     {
         "id": "meeting_6978cba56b6c46.69814671",
@@ -110,7 +117,8 @@
         "time": "13:20",
         "recurring": "Once",
         "created_by": "test",
-        "created_at": "2026-01-27 14:28:53"
+        "created_at": "2026-01-27 14:28:53",
+        "series_id": "meeting_6978cba56b6c46.69814671"
     },
     {
         "id": "meeting_6978cbcf8c7724.10211317",
@@ -137,7 +145,8 @@
             }
         ],
         "duration": 105,
-        "ended_at": "2026-01-28 13:03:07"
+        "ended_at": "2026-01-28 13:03:07",
+        "series_id": "meeting_6978cbcf8c7724.10211317"
     },
     {
         "id": "meeting_6979027a456820.89307395",
@@ -150,7 +159,8 @@
         "recurring": "Once",
         "created_by": "Admin",
         "created_at": "2026-01-27 20:22:50",
-        "questions": []
+        "questions": [],
+        "series_id": "meeting_6979027a456820.89307395"
     },
     {
         "id": "meeting_6979048b52ed22.68909664",
@@ -177,7 +187,8 @@
                 "created_at": "2026-01-27 20:32:09"
             }
         ],
-        "ended_at": "2026-01-27 21:24:09"
+        "ended_at": "2026-01-27 21:24:09",
+        "series_id": "meeting_6979048b52ed22.68909664"
     },
     {
         "id": "meeting_69790803e9c9c3.45180082",
@@ -210,6 +221,41 @@
                 "created_by": "Admin",
                 "created_at": "2026-01-27 21:09:11"
             }
-        ]
+        ],
+        "series_id": "meeting_69790803e9c9c3.45180082"
+    },
+    {
+        "id": "meeting_697a32dba60041.75383441",
+        "series_id": "meeting_6977e422d57902.51703955",
+        "name": "\u0417\u0430\u0441\u0435\u0434\u0430\u043d\u0438\u0435",
+        "reason": "",
+        "comments": "",
+        "agency_name": "FMI_CRINGE_BAD",
+        "agency_index": 1,
+        "date": "2026-03-01",
+        "time": "11:11",
+        "duration": 60,
+        "recurring": "Monthly",
+        "created_by": "Admin",
+        "created_at": "2026-01-28 18:01:31",
+        "questions": [],
+        "started_at": "2026-01-28 18:01:52",
+        "ended_at": "2026-01-28 18:01:54"
+    },
+    {
+        "id": "meeting_697a32f2d4a3c5.56462444",
+        "series_id": "meeting_6977e422d57902.51703955",
+        "name": "\u0417\u0430\u0441\u0435\u0434\u0430\u043d\u0438\u0435",
+        "reason": "",
+        "comments": "",
+        "agency_name": "FMI_CRINGE_BAD",
+        "agency_index": 1,
+        "date": "2026-04-01",
+        "time": "11:11",
+        "duration": 60,
+        "recurring": "Monthly",
+        "created_by": "Admin",
+        "created_at": "2026-01-28 18:01:54",
+        "questions": []
     }
 ]

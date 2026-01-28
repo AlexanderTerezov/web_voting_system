@@ -28,6 +28,8 @@ $meetings = [];
 if (file_exists($meetings_file)) {
     $meetings = json_decode(file_get_contents($meetings_file), true);
 }
+require_once __DIR__ . '/recurring_meetings.php';
+ensureRecurringMeetings($meetings, $meetings_file);
 
 // Load users for admin
 $users = [];
