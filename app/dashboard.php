@@ -1,8 +1,8 @@
 <?php
 session_start();
 
-// Set timezone (adjust to your timezone)
-date_default_timezone_set('Europe/Sofia'); // Change this to your timezone if needed
+// Set timezone
+date_default_timezone_set('Europe/Sofia');
 
 if (!isset($_SESSION['user'])) {
     header('Location: index.php');
@@ -28,8 +28,6 @@ $meetings = [];
 if (file_exists($meetings_file)) {
     $meetings = json_decode(file_get_contents($meetings_file), true);
 }
-require_once __DIR__ . '/recurring_meetings.php';
-ensureRecurringMeetings($meetings, $meetings_file);
 
 // Load users for admin
 $users = [];
