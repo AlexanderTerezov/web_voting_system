@@ -33,9 +33,21 @@ $now = new DateTime();
 foreach ($meetings as $meeting) {
     // Calculate meeting end time based on duration
     $meetingStart = new DateTime($meeting['date'] . ' ' . $meeting['time']);
+    if (!empty($meeting['started_at'])) {
+        $overrideStart = new DateTime($meeting['started_at']);
+        if ($overrideStart < $meetingStart) {
+            $meetingStart = $overrideStart;
+        }
+    }
     $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60; // Default 60 minutes
     $meetingEnd = clone $meetingStart;
     $meetingEnd->modify("+{$duration} minutes");
+    if (!empty($meeting['ended_at'])) {
+        $overrideEnd = new DateTime($meeting['ended_at']);
+        if ($overrideEnd < $meetingEnd) {
+            $meetingEnd = $overrideEnd;
+        }
+    }
     
     // Check if user is part of this agency
     $isParticipant = false;
@@ -53,6 +65,7 @@ foreach ($meetings as $meeting) {
     if ($isParticipant) {
         $meeting['end_time'] = $meetingEnd;
         $meeting['is_past'] = $meetingEnd < $now;
+        $meeting['is_active'] = $now >= $meetingStart && $now <= $meetingEnd;
         $userMeetings[] = $meeting;
     }
 }
@@ -167,6 +180,10 @@ $pageMeetings = array_slice($userMeetings, $start, $perPage);
         .status-past{
             background: #f3f4f6;
             color: #6b7280;
+        }
+        .status-active{
+            background: #dcfce7;
+            color: #166534;
         }
         .meeting-name{
             font-weight: 600;
@@ -288,6 +305,7 @@ $pageMeetings = array_slice($userMeetings, $start, $perPage);
         <div class="meetings-section">
             <div class="filter-buttons">
                 <a href="?filter=all&per_page=<?php echo $perPage; ?>" class="filter-btn <?php echo (!isset($_GET['filter']) || $_GET['filter'] === 'all') ? 'active' : ''; ?>">All Meetings</a>
+                <a href="?filter=active&per_page=<?php echo $perPage; ?>" class="filter-btn <?php echo (isset($_GET['filter']) && $_GET['filter'] === 'active') ? 'active' : ''; ?>">Active</a>
                 <a href="?filter=upcoming&per_page=<?php echo $perPage; ?>" class="filter-btn <?php echo (isset($_GET['filter']) && $_GET['filter'] === 'upcoming') ? 'active' : ''; ?>">Upcoming</a>
                 <a href="?filter=past&per_page=<?php echo $perPage; ?>" class="filter-btn <?php echo (isset($_GET['filter']) && $_GET['filter'] === 'past') ? 'active' : ''; ?>">Past</a>
             </div>
@@ -297,8 +315,10 @@ $pageMeetings = array_slice($userMeetings, $start, $perPage);
             $filter = isset($_GET['filter']) ? $_GET['filter'] : 'all';
             $filteredMeetings = $userMeetings;
             
-            if ($filter === 'upcoming') {
-                $filteredMeetings = array_filter($userMeetings, function($m) { return !$m['is_past']; });
+            if ($filter === 'active') {
+                $filteredMeetings = array_filter($userMeetings, function($m) { return !empty($m['is_active']); });
+            } elseif ($filter === 'upcoming') {
+                $filteredMeetings = array_filter($userMeetings, function($m) { return !$m['is_past'] && empty($m['is_active']); });
             } elseif ($filter === 'past') {
                 $filteredMeetings = array_filter($userMeetings, function($m) { return $m['is_past']; });
             }
@@ -336,15 +356,32 @@ $pageMeetings = array_slice($userMeetings, $start, $perPage);
                     }
                     
                     $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
-                    $endTime = clone (new DateTime($meeting['date'] . ' ' . $meeting['time']));
+                    $meetingStart = new DateTime($meeting['date'] . ' ' . $meeting['time']);
+                    if (!empty($meeting['started_at'])) {
+                        $overrideStart = new DateTime($meeting['started_at']);
+                        if ($overrideStart < $meetingStart) {
+                            $meetingStart = $overrideStart;
+                        }
+                    }
+                    $endTime = clone $meetingStart;
                     $endTime->modify("+{$duration} minutes");
+                    if (!empty($meeting['ended_at'])) {
+                        $overrideEnd = new DateTime($meeting['ended_at']);
+                        if ($overrideEnd < $endTime) {
+                            $endTime = $overrideEnd;
+                        }
+                    }
                     ?>
                     <div class="meeting-card">
                         <div class="meeting-name">
                             <?php echo htmlspecialchars($meeting['name'] ?? 'Unnamed Meeting'); ?>
-                            <span class="meeting-status <?php echo $meeting['is_past'] ? 'status-past' : 'status-upcoming'; ?>">
-                                <?php echo $meeting['is_past'] ? 'Past' : 'Upcoming'; ?>
-                            </span>
+                            <?php if ($meeting['is_past']): ?>
+                                <span class="meeting-status status-past">Past</span>
+                            <?php elseif (!empty($meeting['is_active'])): ?>
+                                <span class="meeting-status status-active">Active</span>
+                            <?php else: ?>
+                                <span class="meeting-status status-upcoming">Upcoming</span>
+                            <?php endif; ?>
                         </div>
                         <h3><?php echo htmlspecialchars($meeting['agency_name']); ?></h3>
                         <p class="meeting-info"><strong>Date:</strong> <?php echo htmlspecialchars($meeting['date']); ?></p>

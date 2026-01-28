@@ -14,12 +14,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $meeting_id = trim($_POST['meeting_id'] ?? '');
-$question_id = trim($_POST['question_id'] ?? '');
-$vote = trim($_POST['vote'] ?? '');
+$meeting_comments = trim($_POST['meeting_comments'] ?? '');
 
-$allowedVotes = ['yes', 'no', 'abstain'];
-if ($meeting_id === '' || $question_id === '' || !in_array($vote, $allowedVotes, true)) {
-    header('Location: dashboard.php?error=Invalid vote');
+if ($meeting_id === '') {
+    header('Location: dashboard.php?error=Meeting not found');
     exit();
 }
 
@@ -45,22 +43,22 @@ if ($meeting === null) {
     exit();
 }
 
-// Access check (admin or participant)
+// Access check (admin or secretary)
 $agencies_file = '../db/agencies.json';
 $agencies = [];
 if (file_exists($agencies_file)) {
     $agencies = json_decode(file_get_contents($agencies_file), true);
 }
 
-$hasAccess = false;
+$canManage = false;
 if ($_SESSION['role'] === 'Admin') {
-    $hasAccess = true;
+    $canManage = true;
 } else {
     foreach ($agencies as $agency) {
         if (($agency['name'] ?? '') === ($meeting['agency_name'] ?? '')) {
             foreach ($agency['participants'] as $participant) {
-                if (($participant['username'] ?? '') === $_SESSION['user']) {
-                    $hasAccess = true;
+                if (($participant['username'] ?? '') === $_SESSION['user'] && ($participant['role'] ?? '') === 'secretary') {
+                    $canManage = true;
                     break 2;
                 }
             }
@@ -68,7 +66,7 @@ if ($_SESSION['role'] === 'Admin') {
     }
 }
 
-if (!$hasAccess) {
+if (!$canManage) {
     header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Access denied');
     exit();
 }
@@ -91,35 +89,15 @@ if (!empty($meeting['ended_at'])) {
 }
 $now = new DateTime();
 
-if ($now < $meetingStart || $now > $meetingEnd) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Voting is only allowed during the meeting');
+if ($now <= $meetingEnd) {
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Meeting has not ended yet');
     exit();
 }
 
-if (!isset($meetings[$meetingIndex]['questions']) || !is_array($meetings[$meetingIndex]['questions'])) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=No questions found');
-    exit();
-}
-
-$questionFound = false;
-foreach ($meetings[$meetingIndex]['questions'] as $qIndex => $question) {
-    if (($question['id'] ?? '') === $question_id) {
-        $questionFound = true;
-        if (!isset($meetings[$meetingIndex]['questions'][$qIndex]['votes']) || !is_array($meetings[$meetingIndex]['questions'][$qIndex]['votes'])) {
-            $meetings[$meetingIndex]['questions'][$qIndex]['votes'] = [];
-        }
-        $meetings[$meetingIndex]['questions'][$qIndex]['votes'][$_SESSION['user']] = $vote;
-        break;
-    }
-}
-
-if (!$questionFound) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Question not found');
-    exit();
-}
+$meetings[$meetingIndex]['comments'] = $meeting_comments;
 
 file_put_contents($meetings_file, json_encode($meetings, JSON_PRETTY_PRINT), LOCK_EX);
 
-header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Vote recorded');
+header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Comments saved');
 exit();
 ?>

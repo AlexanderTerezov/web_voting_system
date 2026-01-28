@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $agency_index = intval($_POST['agency_index']);
 $agency_name = $_POST['agency_name'];
 $meeting_name = trim($_POST['meeting_name']);
+$meeting_reason = trim($_POST['meeting_reason'] ?? '');
 $meeting_date = $_POST['meeting_date'];
 $meeting_time = $_POST['meeting_time'];
 $duration = intval($_POST['duration']);
@@ -39,6 +40,8 @@ $meeting_id = uniqid('meeting_', true);
 $meetings[] = [
     'id' => $meeting_id,
     'name' => $meeting_name,
+    'reason' => $meeting_reason,
+    'comments' => '',
     'agency_name' => $agency_name,
     'agency_index' => $agency_index,
     'date' => $meeting_date,

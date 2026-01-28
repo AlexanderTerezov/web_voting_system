@@ -82,8 +82,20 @@ if ($_SESSION['role'] === 'Admin') {
 
 $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
 $meetingStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
+if (!empty($meeting['started_at'])) {
+    $overrideStart = new DateTime($meeting['started_at']);
+    if ($overrideStart < $meetingStart) {
+        $meetingStart = $overrideStart;
+    }
+}
 $meetingEnd = clone $meetingStart;
 $meetingEnd->modify("+{$duration} minutes");
+if (!empty($meeting['ended_at'])) {
+    $overrideEnd = new DateTime($meeting['ended_at']);
+    if ($overrideEnd < $meetingEnd) {
+        $meetingEnd = $overrideEnd;
+    }
+}
 $now = new DateTime();
 $meetingActive = $now >= $meetingStart && $now <= $meetingEnd;
 $meetingStarted = $now >= $meetingStart;
@@ -165,6 +177,19 @@ $questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $
             color: var(--accent);
             text-decoration: none;
             border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-top: 12px;
+            font-weight: 600;
+        }
+        .protocol-btn{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: #111827;
+            color: #fff;
+            text-decoration: none;
+            border: 1px solid rgba(17,24,39,0.12);
             border-radius: 10px;
             margin-top: 12px;
             font-weight: 600;
@@ -352,6 +377,30 @@ $questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $
             color: var(--muted);
             font-size: 13px;
         }
+        .status-actions{
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .status-action-btn{
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: #fff;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .status-action-btn.end{
+            background: #fee2e2;
+            color: #991b1b;
+            border-color: rgba(153,27,27,0.25);
+        }
+        .status-action-btn.extend{
+            background: #dbeafe;
+            color: #1e40af;
+            border-color: rgba(30,64,175,0.25);
+        }
     </style>
 </head>
 <body>
@@ -366,8 +415,14 @@ $questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $
                 <p><strong>Time:</strong> <?php echo htmlspecialchars($meeting['time']); ?> - <?php echo $meetingEnd->format('H:i'); ?> (<?php echo $duration; ?> minutes)</p>
                 <p><strong>Recurring:</strong> <?php echo htmlspecialchars($meeting['recurring']); ?></p>
                 <p><strong>Created by:</strong> <?php echo htmlspecialchars($meeting['created_by']); ?></p>
+                <?php if (!empty($meeting['reason'])): ?>
+                    <p><strong>Reason:</strong> <?php echo htmlspecialchars($meeting['reason']); ?></p>
+                <?php endif; ?>
             </div>
             <a href="dashboard.php" class="back-btn">← Back to Dashboard</a>
+            <?php if ($meetingEnded): ?>
+                <a href="meeting_protocol.php?id=<?php echo urlencode($meeting['id']); ?>&print=1" target="_blank" rel="noopener noreferrer" class="protocol-btn">Generate PDF Protocol</a>
+            <?php endif; ?>
         </div>
 
         <div class="meeting-content">
@@ -403,6 +458,60 @@ $questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $
                         <?php endif; ?>
                     </div>
                 </div>
+                <?php if ($canManageQuestions): ?>
+                    <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                        <div class="status-actions">
+                            <?php if ($meetingActive): ?>
+                                <form action="update_meeting_time.php" method="POST">
+                                    <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
+                                    <input type="hidden" name="action_type" value="extend">
+                                    <input type="hidden" name="extend_minutes" value="15">
+                                    <button type="submit" class="status-action-btn extend">Extend +15 min</button>
+                                </form>
+                                <form action="update_meeting_time.php" method="POST">
+                                    <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
+                                    <input type="hidden" name="action_type" value="end_early">
+                                    <button type="submit" class="status-action-btn end" onclick="return confirm('End this meeting early?')">End Now</button>
+                                </form>
+                            <?php elseif ($meetingStarted && !$meetingEnded): ?>
+                                <form action="update_meeting_time.php" method="POST">
+                                    <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
+                                    <input type="hidden" name="action_type" value="extend">
+                                    <input type="hidden" name="extend_minutes" value="15">
+                                    <button type="submit" class="status-action-btn extend">Extend +15 min</button>
+                                </form>
+                            <?php else: ?>
+                                <form action="update_meeting_time.php" method="POST">
+                                    <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
+                                    <input type="hidden" name="action_type" value="start_early">
+                                    <button type="submit" class="status-action-btn extend" onclick="return confirm('Start this meeting now?')">Start Now</button>
+                                </form>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <div class="section">
+                <h2>Meeting Comments / Minutes</h2>
+                <?php if (!empty($meeting['comments'])): ?>
+                    <p class="question-desc"><?php echo htmlspecialchars($meeting['comments']); ?></p>
+                <?php else: ?>
+                    <p class="empty-message">No comments added yet.</p>
+                <?php endif; ?>
+
+                <?php if ($canManageQuestions && $meetingEnded): ?>
+                    <form action="save_meeting_comments.php" method="POST" style="margin-top: 12px;">
+                        <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
+                        <div class="form-group">
+                            <label for="meeting_comments">Add / Update Comments</label>
+                            <textarea id="meeting_comments" name="meeting_comments" placeholder="Summarize discussion, decisions, and follow-ups."><?php echo htmlspecialchars($meeting['comments'] ?? ''); ?></textarea>
+                        </div>
+                        <button type="submit" class="submit-btn">Save Comments</button>
+                    </form>
+                <?php elseif ($canManageQuestions && !$meetingEnded): ?>
+                    <p class="status-meta">Comments can be added after the meeting ends.</p>
+                <?php endif; ?>
             </div>
 
             <?php if ($canManageQuestions): ?>

@@ -14,12 +14,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $meeting_id = trim($_POST['meeting_id'] ?? '');
-$question_id = trim($_POST['question_id'] ?? '');
-$vote = trim($_POST['vote'] ?? '');
+$action = trim($_POST['action_type'] ?? '');
+$extendMinutes = intval($_POST['extend_minutes'] ?? 0);
 
-$allowedVotes = ['yes', 'no', 'abstain'];
-if ($meeting_id === '' || $question_id === '' || !in_array($vote, $allowedVotes, true)) {
-    header('Location: dashboard.php?error=Invalid vote');
+if ($meeting_id === '' || $action === '') {
+    header('Location: dashboard.php?error=Invalid request');
     exit();
 }
 
@@ -45,22 +44,22 @@ if ($meeting === null) {
     exit();
 }
 
-// Access check (admin or participant)
+// Access check (admin or secretary)
 $agencies_file = '../db/agencies.json';
 $agencies = [];
 if (file_exists($agencies_file)) {
     $agencies = json_decode(file_get_contents($agencies_file), true);
 }
 
-$hasAccess = false;
+$canManage = false;
 if ($_SESSION['role'] === 'Admin') {
-    $hasAccess = true;
+    $canManage = true;
 } else {
     foreach ($agencies as $agency) {
         if (($agency['name'] ?? '') === ($meeting['agency_name'] ?? '')) {
             foreach ($agency['participants'] as $participant) {
-                if (($participant['username'] ?? '') === $_SESSION['user']) {
-                    $hasAccess = true;
+                if (($participant['username'] ?? '') === $_SESSION['user'] && ($participant['role'] ?? '') === 'secretary') {
+                    $canManage = true;
                     break 2;
                 }
             }
@@ -68,7 +67,7 @@ if ($_SESSION['role'] === 'Admin') {
     }
 }
 
-if (!$hasAccess) {
+if (!$canManage) {
     header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Access denied');
     exit();
 }
@@ -91,35 +90,36 @@ if (!empty($meeting['ended_at'])) {
 }
 $now = new DateTime();
 
-if ($now < $meetingStart || $now > $meetingEnd) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Voting is only allowed during the meeting');
-    exit();
-}
-
-if (!isset($meetings[$meetingIndex]['questions']) || !is_array($meetings[$meetingIndex]['questions'])) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=No questions found');
-    exit();
-}
-
-$questionFound = false;
-foreach ($meetings[$meetingIndex]['questions'] as $qIndex => $question) {
-    if (($question['id'] ?? '') === $question_id) {
-        $questionFound = true;
-        if (!isset($meetings[$meetingIndex]['questions'][$qIndex]['votes']) || !is_array($meetings[$meetingIndex]['questions'][$qIndex]['votes'])) {
-            $meetings[$meetingIndex]['questions'][$qIndex]['votes'] = [];
-        }
-        $meetings[$meetingIndex]['questions'][$qIndex]['votes'][$_SESSION['user']] = $vote;
-        break;
+if ($action === 'end_early') {
+    if (!($now >= $meetingStart && $now <= $meetingEnd)) {
+        header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Meeting is not active');
+        exit();
     }
-}
-
-if (!$questionFound) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Question not found');
+    $meetings[$meetingIndex]['ended_at'] = $now->format('Y-m-d H:i:s');
+} elseif ($action === 'extend') {
+    if ($extendMinutes < 1 || $extendMinutes > 240) {
+        header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Invalid extension');
+        exit();
+    }
+    if ($now > $meetingEnd) {
+        header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Meeting has already ended');
+        exit();
+    }
+    $meetings[$meetingIndex]['duration'] = $duration + $extendMinutes;
+} elseif ($action === 'start_early') {
+    $scheduledStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
+    if ($now >= $scheduledStart) {
+        header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Meeting already started');
+        exit();
+    }
+    $meetings[$meetingIndex]['started_at'] = $now->format('Y-m-d H:i:s');
+} else {
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Invalid action');
     exit();
 }
 
 file_put_contents($meetings_file, json_encode($meetings, JSON_PRETTY_PRINT), LOCK_EX);
 
-header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Vote recorded');
+header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Meeting time updated');
 exit();
 ?>

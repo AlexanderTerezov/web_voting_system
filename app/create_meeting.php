@@ -93,7 +93,7 @@ if (!$isSecretary) {
             color: var(--muted);
             margin-bottom: 6px;
         }
-        .form-group input, .form-group select{
+        .form-group input, .form-group select, .form-group textarea{
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border);
@@ -103,7 +103,8 @@ if (!$isSecretary) {
             background: #fff;
             transition: border-color 120ms ease, box-shadow 120ms ease;
         }
-        .form-group input:focus, .form-group select:focus{
+        .form-group textarea{ min-height: 90px; resize: vertical; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus{
             border-color: rgba(31,75,153,0.55);
             box-shadow: 0 0 0 4px rgba(31,75,153,0.12);
         }
@@ -180,6 +181,11 @@ if (!$isSecretary) {
                 <div class="form-group">
                     <label for="meeting_name">Meeting Name</label>
                     <input type="text" id="meeting_name" name="meeting_name" required placeholder="e.g., Q1 Budget Review">
+                </div>
+
+                <div class="form-group">
+                    <label for="meeting_reason">Reason / Purpose of Meeting</label>
+                    <textarea id="meeting_reason" name="meeting_reason" placeholder="e.g., Approve Q1 budget changes and align on spending priorities."></textarea>
                 </div>
                 
                 <div class="form-group">

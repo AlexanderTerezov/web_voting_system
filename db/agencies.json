@@ -38,5 +38,17 @@
         ],
         "created_at": "2026-01-26 20:46:03",
         "created_by": "Admin"
+    },
+    {
+        "name": "\u0430\u0441\u0434",
+        "quorum": 123,
+        "participants": [
+            {
+                "username": "Admin",
+                "role": "member"
+            }
+        ],
+        "created_at": "2026-01-28 13:07:53",
+        "created_by": "Admin"
     }
 ]
