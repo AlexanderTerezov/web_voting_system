@@ -6,29 +6,28 @@ if (!isset($_SESSION['user']) || $_SESSION['role'] !== 'Admin') {
     exit();
 }
 
-$agency_index = isset($_GET['index']) ? intval($_GET['index']) : -1;
+require_once __DIR__ . '/db.php';
+$pdo = getDb();
 
-$agencies_file = '../db/agencies.json';
-if (!file_exists($agencies_file)) {
-    header('Location: dashboard.php?error=Няма намерени органи');
-    exit();
-}
+$agency_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 
-$agencies = json_decode(file_get_contents($agencies_file), true);
+$agencyStmt = $pdo->prepare('SELECT * FROM agencies WHERE id = :id');
+$agencyStmt->execute([':id' => $agency_id]);
+$agency = $agencyStmt->fetch();
 
-if (!isset($agencies[$agency_index])) {
+if (!$agency) {
     header('Location: dashboard.php?error=Органът не е намерен');
     exit();
 }
 
-$agency = $agencies[$agency_index];
+$participantsStmt = $pdo->prepare('SELECT username, role FROM agency_participants WHERE agency_id = :id');
+$participantsStmt->execute([':id' => $agency_id]);
+$agency['participants'] = $participantsStmt->fetchAll();
 
 // Load users
 $users = [];
-$users_file = '../db/users.json';
-if (file_exists($users_file)) {
-    $users = json_decode(file_get_contents($users_file), true);
-}
+$usersStmt = $pdo->query('SELECT username FROM users ORDER BY username');
+$users = $usersStmt->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -174,7 +173,7 @@ if (file_exists($users_file)) {
             <?php endif; ?>
             
             <form action="update_agency.php" method="POST">
-                <input type="hidden" name="agency_index" value="<?php echo $agency_index; ?>">
+                <input type="hidden" name="agency_id" value="<?php echo $agency_id; ?>">
                 
                 <div class="form-group">
                     <label for="agency_name">Име на орган</label>

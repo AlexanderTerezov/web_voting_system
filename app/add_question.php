@@ -22,48 +22,31 @@ if ($meeting_id === '' || $question_text === '') {
     exit();
 }
 
-$meetings_file = '../db/meetings.json';
-if (!file_exists($meetings_file)) {
-    header('Location: dashboard.php?error=Файлът със заседания не е намерен');
-    exit();
-}
+require_once __DIR__ . '/db.php';
+$pdo = getDb();
 
-$meetings = json_decode(file_get_contents($meetings_file), true);
-$meetingIndex = null;
-$meeting = null;
-foreach ($meetings as $index => $m) {
-    if (($m['id'] ?? '') === $meeting_id) {
-        $meetingIndex = $index;
-        $meeting = $m;
-        break;
-    }
-}
+$meetingStmt = $pdo->prepare('SELECT * FROM meetings WHERE id = :id');
+$meetingStmt->execute([':id' => $meeting_id]);
+$meeting = $meetingStmt->fetch();
 
 if ($meeting === null) {
     header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
-// Load agencies and verify secretary/admin access
-$agencies_file = '../db/agencies.json';
-$agencies = [];
-if (file_exists($agencies_file)) {
-    $agencies = json_decode(file_get_contents($agencies_file), true);
-}
-
+// Verify secretary/admin access
 $canManageQuestions = false;
 if ($_SESSION['role'] === 'Admin') {
     $canManageQuestions = true;
 } else {
-    foreach ($agencies as $agency) {
-        if (($agency['name'] ?? '') === ($meeting['agency_name'] ?? '')) {
-            foreach ($agency['participants'] as $participant) {
-                if (($participant['username'] ?? '') === $_SESSION['user'] && ($participant['role'] ?? '') === 'secretary') {
-                    $canManageQuestions = true;
-                    break 2;
-                }
-            }
-        }
+    $participantStmt = $pdo->prepare('SELECT role FROM agency_participants WHERE agency_id = :agency_id AND username = :username LIMIT 1');
+    $participantStmt->execute([
+        ':agency_id' => $meeting['agency_id'],
+        ':username' => $_SESSION['user']
+    ]);
+    $participant = $participantStmt->fetch();
+    if ($participant && $participant['role'] === 'secretary') {
+        $canManageQuestions = true;
     }
 }
 
@@ -150,13 +133,35 @@ $question = [
     'created_at' => date('Y-m-d H:i:s')
 ];
 
-if (!isset($meetings[$meetingIndex]['questions']) || !is_array($meetings[$meetingIndex]['questions'])) {
-    $meetings[$meetingIndex]['questions'] = [];
+$insertQuestion = $pdo->prepare(
+    'INSERT INTO questions (id, meeting_id, text, details, created_by, created_at)
+     VALUES (:id, :meeting_id, :text, :details, :created_by, :created_at)'
+);
+$insertQuestion->execute([
+    ':id' => $question['id'],
+    ':meeting_id' => $meeting_id,
+    ':text' => $question['text'],
+    ':details' => $question['details'],
+    ':created_by' => $question['created_by'],
+    ':created_at' => $question['created_at']
+]);
+
+if (!empty($attachments)) {
+    $insertAttachment = $pdo->prepare(
+        'INSERT INTO attachments (question_id, original_name, stored_name, path, type, size)
+         VALUES (:question_id, :original_name, :stored_name, :path, :type, :size)'
+    );
+    foreach ($attachments as $attachment) {
+        $insertAttachment->execute([
+            ':question_id' => $question['id'],
+            ':original_name' => $attachment['original_name'],
+            ':stored_name' => $attachment['stored_name'],
+            ':path' => $attachment['path'],
+            ':type' => $attachment['type'],
+            ':size' => $attachment['size']
+        ]);
+    }
 }
-
-$meetings[$meetingIndex]['questions'][] = $question;
-
-file_put_contents($meetings_file, json_encode($meetings, JSON_PRETTY_PRINT), LOCK_EX);
 
 header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Точката е добавена');
 exit();

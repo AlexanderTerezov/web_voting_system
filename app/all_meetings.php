@@ -12,21 +12,29 @@ if (!isset($_SESSION['user'])) {
 $username = $_SESSION['user'];
 $role = $_SESSION['role'];
 
-// Load agencies
-$agencies_file = '../db/agencies.json';
-$agencies = [];
-if (file_exists($agencies_file)) {
-    $agencies = json_decode(file_get_contents($agencies_file), true);
+require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/recurring_meetings.php';
+$pdo = getDb();
+ensureRecurringMeetings($pdo);
+
+// Load agencies and participants
+$agencies = $pdo->query('SELECT * FROM agencies ORDER BY created_at DESC')->fetchAll();
+$participantsRows = $pdo->query('SELECT agency_id, username, role FROM agency_participants')->fetchAll();
+$rolesByAgencyUser = [];
+foreach ($participantsRows as $row) {
+    $agencyId = (int)$row['agency_id'];
+    if (!isset($rolesByAgencyUser[$agencyId])) {
+        $rolesByAgencyUser[$agencyId] = [];
+    }
+    $rolesByAgencyUser[$agencyId][$row['username']] = $row['role'];
 }
 
-// Load meetings
-$meetings_file = '../db/meetings.json';
-$meetings = [];
-if (file_exists($meetings_file)) {
-    $meetings = json_decode(file_get_contents($meetings_file), true);
-}
-require_once __DIR__ . '/recurring_meetings.php';
-ensureRecurringMeetings($meetings, $meetings_file);
+// Load meetings with agency name
+$meetings = $pdo->query(
+    'SELECT m.*, a.name AS agency_name
+     FROM meetings m
+     JOIN agencies a ON a.id = m.agency_id'
+)->fetchAll();
 
 // Get all meetings for user
 $userMeetings = [];
@@ -53,17 +61,8 @@ foreach ($meetings as $meeting) {
     }
     
     // Check if user is part of this agency
-    $isParticipant = false;
-    foreach ($agencies as $agency) {
-        if ($agency['name'] === $meeting['agency_name']) {
-            foreach ($agency['participants'] as $participant) {
-                if ($participant['username'] === $username || $role === 'Admin') {
-                    $isParticipant = true;
-                    break 2;
-                }
-            }
-        }
-    }
+    $agencyId = (int)$meeting['agency_id'];
+    $isParticipant = $role === 'Admin' || isset($rolesByAgencyUser[$agencyId][$username]);
     
     if ($isParticipant) {
         $meeting['end_time'] = $meetingEnd;

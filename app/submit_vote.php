@@ -23,49 +23,39 @@ if ($meeting_id === '' || $question_id === '' || !in_array($vote, $allowedVotes,
     exit();
 }
 
-$meetings_file = '../db/meetings.json';
-if (!file_exists($meetings_file)) {
-    header('Location: dashboard.php?error=Файлът със заседания не е намерен');
-    exit();
-}
+require_once __DIR__ . '/db.php';
+$pdo = getDb();
 
-$meetings = json_decode(file_get_contents($meetings_file), true);
-$meetingIndex = null;
-$meeting = null;
-foreach ($meetings as $index => $m) {
-    if (($m['id'] ?? '') === $meeting_id) {
-        $meetingIndex = $index;
-        $meeting = $m;
-        break;
-    }
-}
+$meetingStmt = $pdo->prepare('SELECT * FROM meetings WHERE id = :id');
+$meetingStmt->execute([':id' => $meeting_id]);
+$meeting = $meetingStmt->fetch();
 
 if ($meeting === null) {
     header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
-// Access check (admin or participant)
-$agencies_file = '../db/agencies.json';
-$agencies = [];
-if (file_exists($agencies_file)) {
-    $agencies = json_decode(file_get_contents($agencies_file), true);
+$questionStmt = $pdo->prepare('SELECT id FROM questions WHERE id = :question_id AND meeting_id = :meeting_id');
+$questionStmt->execute([
+    ':question_id' => $question_id,
+    ':meeting_id' => $meeting_id
+]);
+if (!$questionStmt->fetchColumn()) {
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Точката не е намерена');
+    exit();
 }
 
+// Access check (admin or participant)
 $hasAccess = false;
 if ($_SESSION['role'] === 'Admin') {
     $hasAccess = true;
 } else {
-    foreach ($agencies as $agency) {
-        if (($agency['name'] ?? '') === ($meeting['agency_name'] ?? '')) {
-            foreach ($agency['participants'] as $participant) {
-                if (($participant['username'] ?? '') === $_SESSION['user']) {
-                    $hasAccess = true;
-                    break 2;
-                }
-            }
-        }
-    }
+    $participantStmt = $pdo->prepare('SELECT 1 FROM agency_participants WHERE agency_id = :agency_id AND username = :username');
+    $participantStmt->execute([
+        ':agency_id' => $meeting['agency_id'],
+        ':username' => $_SESSION['user']
+    ]);
+    $hasAccess = (bool)$participantStmt->fetchColumn();
 }
 
 if (!$hasAccess) {
@@ -96,29 +86,17 @@ if ($now < $meetingStart || $now > $meetingEnd) {
     exit();
 }
 
-if (!isset($meetings[$meetingIndex]['questions']) || !is_array($meetings[$meetingIndex]['questions'])) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Няма намерени точки');
-    exit();
-}
-
-$questionFound = false;
-foreach ($meetings[$meetingIndex]['questions'] as $qIndex => $question) {
-    if (($question['id'] ?? '') === $question_id) {
-        $questionFound = true;
-        if (!isset($meetings[$meetingIndex]['questions'][$qIndex]['votes']) || !is_array($meetings[$meetingIndex]['questions'][$qIndex]['votes'])) {
-            $meetings[$meetingIndex]['questions'][$qIndex]['votes'] = [];
-        }
-        $meetings[$meetingIndex]['questions'][$qIndex]['votes'][$_SESSION['user']] = $vote;
-        break;
-    }
-}
-
-if (!$questionFound) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Точката не е намерена');
-    exit();
-}
-
-file_put_contents($meetings_file, json_encode($meetings, JSON_PRETTY_PRINT), LOCK_EX);
+$insertVote = $pdo->prepare(
+    'INSERT INTO votes (question_id, username, vote, created_at)
+     VALUES (:question_id, :username, :vote, :created_at)
+     ON CONFLICT(question_id, username) DO UPDATE SET vote = excluded.vote, created_at = excluded.created_at'
+);
+$insertVote->execute([
+    ':question_id' => $question_id,
+    ':username' => $_SESSION['user'],
+    ':vote' => $vote,
+    ':created_at' => date('Y-m-d H:i:s')
+]);
 
 header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Гласът е записан');
 exit();

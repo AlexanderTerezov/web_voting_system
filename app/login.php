@@ -9,29 +9,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $username = trim($_POST['username']);
 $password = $_POST['password'];
 
-$users_file = '../db/users.json';
-if (!file_exists($users_file)) {
-    header('Location: index.php?error=Невалидни данни за вход');
+require_once __DIR__ . '/db.php';
+$pdo = getDb();
+
+$stmt = $pdo->prepare('SELECT username, email, password, role FROM users WHERE username = :username LIMIT 1');
+$stmt->execute([':username' => $username]);
+$user = $stmt->fetch();
+
+if ($user && password_verify($password, $user['password'])) {
+    $_SESSION['user'] = $user['username'];
+    $_SESSION['email'] = $user['email'];
+    $_SESSION['role'] = $user['role'];
+    $_SESSION['login_time'] = date('Y-m-d H:i:s');
+    header('Location: dashboard.php');
     exit();
-}
-
-$users = json_decode(file_get_contents($users_file), true);
-
-foreach ($users as $user) {
-    if ($user['username'] === $username) {
-        if (password_verify($password, $user['password'])) {
-            $_SESSION['user'] = $user['username'];
-            $_SESSION['email'] = $user['email'];
-            $_SESSION['role'] = $user['role'];
-            $_SESSION['login_time'] = date('Y-m-d H:i:s');
-            
-            header('Location: dashboard.php');
-            exit();
-        } else {
-            header('Location: index.php?error=Невалидни данни за вход');
-            exit();
-        }
-    }
 }
 
 header('Location: index.php?error=Невалидни данни за вход');

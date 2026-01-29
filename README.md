@@ -10,8 +10,8 @@
 - Генериране на протокол след приключване на заседание
 
 ## Технологии
-- PHP (без база данни)
-- Данните се пазят във файлове `db/*.json`
+- PHP + SQLite (PDO)
+- Данните се пазят в `db/database.sqlite`
 - Прикачените файлове се пазят в `app/uploads/`
 
 ## Стартиране (локално)
@@ -22,21 +22,30 @@
 2. Отвори: `http://localhost:8000/index.php`
 
 ## Акаунти и роли
-- Данните за потребителите са в `db/users.json`.
+- Данните за потребителите са в `db/database.sqlite`.
 - Паролите са хеширани. За вход можеш:
   - да създадеш нов акаунт през регистрацията, или
-  - да подмениш хеша в `db/users.json` с нов, генериран чрез:
+  - да смениш паролата с SQL заявка (напр. през `sqlite3`), като използваш нов хеш, генериран чрез:
     ```bash
     php -r "echo password_hash('НоваПарола', PASSWORD_DEFAULT);"
     ```
+    и после:
+    ```bash
+    sqlite3 db/database.sqlite "UPDATE users SET password='ХЕШ' WHERE username='Admin';"
+    ```
+  - можеш и да добавиш като:
+
+    ```bash
+    sqlite3 db/database.sqlite "INSERT INTO users (username,email,password,role,created_at) VALUES ('admin2','admin2@example.com','<HASH>','Admin',datetime('now'));"
+    ```
+
 
 ## Права за писане
 За да работят регистрация, създаване на заседания и качване на файлове, уеб сървърът трябва да има write права върху:
-- `db/`
+- `db/` (за `database.sqlite`)
 - `app/uploads/`
 
 ## Структура
 - `app/` — PHP страници (UI + логика)
-- `db/` — JSON данни
+- `db/` — SQLite база данни
 - `app/uploads/` — прикачени файлове
-

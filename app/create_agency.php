@@ -40,21 +40,28 @@ if (empty($participantsList)) {
     exit();
 }
 
-$agencies_file = '../db/agencies.json';
-$agencies = [];
-if (file_exists($agencies_file)) {
-    $agencies = json_decode(file_get_contents($agencies_file), true);
+require_once __DIR__ . '/db.php';
+$pdo = getDb();
+
+$pdo->beginTransaction();
+$insertAgency = $pdo->prepare('INSERT INTO agencies (name, quorum, created_at, created_by) VALUES (:name, :quorum, :created_at, :created_by)');
+$insertAgency->execute([
+    ':name' => $agency_name,
+    ':quorum' => $quorum,
+    ':created_at' => date('Y-m-d H:i:s'),
+    ':created_by' => $_SESSION['user']
+]);
+$agencyId = (int)$pdo->lastInsertId();
+
+$insertParticipant = $pdo->prepare('INSERT INTO agency_participants (agency_id, username, role) VALUES (:agency_id, :username, :role)');
+foreach ($participantsList as $participant) {
+    $insertParticipant->execute([
+        ':agency_id' => $agencyId,
+        ':username' => $participant['username'],
+        ':role' => $participant['role']
+    ]);
 }
-
-$agencies[] = [
-    'name' => $agency_name,
-    'quorum' => $quorum,
-    'participants' => $participantsList,
-    'created_at' => date('Y-m-d H:i:s'),
-    'created_by' => $_SESSION['user']
-];
-
-file_put_contents($agencies_file, json_encode($agencies, JSON_PRETTY_PRINT));
+$pdo->commit();
 
 header('Location: dashboard.php?success=Органът е създаден успешно');
 exit();

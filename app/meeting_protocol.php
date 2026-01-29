@@ -10,54 +10,32 @@ if (!isset($_SESSION['user'])) {
 
 $meeting_id = isset($_GET['id']) ? trim($_GET['id']) : '';
 
-$meetings_file = '../db/meetings.json';
-if (!file_exists($meetings_file)) {
-    header('Location: dashboard.php?error=Заседанието не е намерено');
-    exit();
-}
+require_once __DIR__ . '/db.php';
+$pdo = getDb();
 
-$meetings = json_decode(file_get_contents($meetings_file), true);
-$meeting = null;
-foreach ($meetings as $m) {
-    if (($m['id'] ?? '') === $meeting_id) {
-        $meeting = $m;
-        break;
-    }
-}
+$meetingStmt = $pdo->prepare(
+    'SELECT m.*, a.name AS agency_name, a.quorum AS agency_quorum
+     FROM meetings m
+     JOIN agencies a ON a.id = m.agency_id
+     WHERE m.id = :id'
+);
+$meetingStmt->execute([':id' => $meeting_id]);
+$meeting = $meetingStmt->fetch();
 
 if (!$meeting) {
     header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
-// Load agencies to verify access and list participants
-$agencies_file = '../db/agencies.json';
-$agencies = [];
-if (file_exists($agencies_file)) {
-    $agencies = json_decode(file_get_contents($agencies_file), true);
+$participantsStmt = $pdo->prepare('SELECT username, role FROM agency_participants WHERE agency_id = :id');
+$participantsStmt->execute([':id' => $meeting['agency_id']]);
+$participants = $participantsStmt->fetchAll();
+$participantRoles = [];
+foreach ($participants as $participant) {
+    $participantRoles[$participant['username']] = $participant['role'];
 }
 
-$agency = null;
-foreach ($agencies as $a) {
-    if (($a['name'] ?? '') === ($meeting['agency_name'] ?? '')) {
-        $agency = $a;
-        break;
-    }
-}
-
-$hasAccess = false;
-if ($_SESSION['role'] === 'Admin') {
-    $hasAccess = true;
-} else {
-    if ($agency && !empty($agency['participants'])) {
-        foreach ($agency['participants'] as $participant) {
-            if (($participant['username'] ?? '') === $_SESSION['user']) {
-                $hasAccess = true;
-                break;
-            }
-        }
-    }
-}
+$hasAccess = $_SESSION['role'] === 'Admin' || isset($participantRoles[$_SESSION['user']]);
 
 if (!$hasAccess) {
     header('Location: dashboard.php?error=Нямате достъп');
@@ -87,8 +65,7 @@ if ($now <= $meetingEnd) {
     exit();
 }
 
-$participants = $agency['participants'] ?? [];
-$quorum = isset($agency['quorum']) ? intval($agency['quorum']) : 0;
+$quorum = isset($meeting['agency_quorum']) ? (int)$meeting['agency_quorum'] : 0;
 $participantUsernames = [];
 foreach ($participants as $participant) {
     if (!empty($participant['username'])) {
@@ -96,22 +73,31 @@ foreach ($participants as $participant) {
     }
 }
 
-$questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $meeting['questions'] : [];
+$questionsStmt = $pdo->prepare('SELECT * FROM questions WHERE meeting_id = :meeting_id ORDER BY created_at ASC');
+$questionsStmt->execute([':meeting_id' => $meeting_id]);
+$questions = $questionsStmt->fetchAll();
+
+$votesStmt = $pdo->prepare(
+    'SELECT v.question_id, v.username, v.vote FROM votes v
+     JOIN questions q ON q.id = v.question_id
+     WHERE q.meeting_id = :meeting_id'
+);
+$votesStmt->execute([':meeting_id' => $meeting_id]);
+$votesRows = $votesStmt->fetchAll();
+$votesByQuestion = [];
+foreach ($votesRows as $voteRow) {
+    $votesByQuestion[$voteRow['question_id']][$voteRow['username']] = $voteRow['vote'];
+}
+foreach ($questions as &$question) {
+    $question['votes'] = $votesByQuestion[$question['id']] ?? [];
+}
+unset($question);
 $attendance = [];
 foreach ($questions as $question) {
     $votes = isset($question['votes']) && is_array($question['votes']) ? $question['votes'] : [];
-    $isAssoc = array_keys($votes) !== range(0, count($votes) - 1);
-    if ($isAssoc) {
-        foreach ($votes as $user => $voteValue) {
-            if ($user !== '') {
-                $attendance[$user] = true;
-            }
-        }
-    } else {
-        foreach ($votes as $voteEntry) {
-            if (is_array($voteEntry) && !empty($voteEntry['user'])) {
-                $attendance[$voteEntry['user']] = true;
-            }
+    foreach ($votes as $user => $voteValue) {
+        if ($user !== '') {
+            $attendance[$user] = true;
         }
     }
 }

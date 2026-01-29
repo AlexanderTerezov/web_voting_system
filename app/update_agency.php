@@ -11,14 +11,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
-$agency_index = intval($_POST['agency_index']);
+$agency_id = intval($_POST['agency_id']);
 $agency_name = trim($_POST['agency_name']);
 $quorum = intval($_POST['quorum']);
 $participants = $_POST['participants'];
 $roles = $_POST['roles'];
 
 if (empty($agency_name) || $quorum < 1 || empty($participants)) {
-    header('Location: edit_agency.php?index=' . $agency_index . '&error=Всички полета са задължителни');
+    header('Location: edit_agency.php?id=' . $agency_id . '&error=Всички полета са задължителни');
     exit();
 }
 
@@ -37,28 +37,38 @@ foreach ($participants as $index => $username) {
 }
 
 if (empty($participantsList)) {
-    header('Location: edit_agency.php?index=' . $agency_index . '&error=Нужен е поне един участник');
+    header('Location: edit_agency.php?id=' . $agency_id . '&error=Нужен е поне един участник');
     exit();
 }
 
-$agencies_file = '../db/agencies.json';
-if (!file_exists($agencies_file)) {
-    header('Location: dashboard.php?error=Няма намерени органи');
-    exit();
-}
+require_once __DIR__ . '/db.php';
+$pdo = getDb();
 
-$agencies = json_decode(file_get_contents($agencies_file), true);
-
-if (!isset($agencies[$agency_index])) {
+$agencyStmt = $pdo->prepare('SELECT id FROM agencies WHERE id = :id');
+$agencyStmt->execute([':id' => $agency_id]);
+if (!$agencyStmt->fetchColumn()) {
     header('Location: dashboard.php?error=Органът не е намерен');
     exit();
 }
 
-$agencies[$agency_index]['name'] = $agency_name;
-$agencies[$agency_index]['quorum'] = $quorum;
-$agencies[$agency_index]['participants'] = $participantsList;
+$pdo->beginTransaction();
+$updateAgency = $pdo->prepare('UPDATE agencies SET name = :name, quorum = :quorum WHERE id = :id');
+$updateAgency->execute([
+    ':name' => $agency_name,
+    ':quorum' => $quorum,
+    ':id' => $agency_id
+]);
 
-file_put_contents($agencies_file, json_encode($agencies, JSON_PRETTY_PRINT));
+$pdo->prepare('DELETE FROM agency_participants WHERE agency_id = :id')->execute([':id' => $agency_id]);
+$insertParticipant = $pdo->prepare('INSERT INTO agency_participants (agency_id, username, role) VALUES (:agency_id, :username, :role)');
+foreach ($participantsList as $participant) {
+    $insertParticipant->execute([
+        ':agency_id' => $agency_id,
+        ':username' => $participant['username'],
+        ':role' => $participant['role']
+    ]);
+}
+$pdo->commit();
 
 header('Location: dashboard.php?success=Органът е обновен успешно');
 exit();

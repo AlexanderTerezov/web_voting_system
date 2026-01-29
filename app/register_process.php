@@ -32,36 +32,33 @@ if ($password !== $confirm_password) {
     exit();
 }
 
-// Load existing users
-$users_file = '../db/users.json';
-$users = [];
-if (file_exists($users_file)) {
-    $users = json_decode(file_get_contents($users_file), true);
-}
+require_once __DIR__ . '/db.php';
+$pdo = getDb();
 
-// Check if username already exists
-foreach ($users as $user) {
-    if ($user['username'] === $username) {
+// Check if username or email already exists
+$stmt = $pdo->prepare('SELECT username, email FROM users WHERE username = :username OR email = :email LIMIT 1');
+$stmt->execute([':username' => $username, ':email' => $email]);
+$existing = $stmt->fetch();
+if ($existing) {
+    if ($existing['username'] === $username) {
         header('Location: register.php?error=Потребителското име вече съществува');
         exit();
     }
-    if ($user['email'] === $email) {
+    if ($existing['email'] === $email) {
         header('Location: register.php?error=Имейлът вече е регистриран');
         exit();
     }
 }
 
 // Add new user (always as regular user, not admin)
-$users[] = [
-    'username' => $username,
-    'email' => $email,
-    'password' => password_hash($password, PASSWORD_DEFAULT),
-    'role' => 'User',
-    'created_at' => date('Y-m-d H:i:s')
-];
-
-// Save to file
-file_put_contents($users_file, json_encode($users, JSON_PRETTY_PRINT));
+$insert = $pdo->prepare('INSERT INTO users (username, email, password, role, created_at) VALUES (:username, :email, :password, :role, :created_at)');
+$insert->execute([
+    ':username' => $username,
+    ':email' => $email,
+    ':password' => password_hash($password, PASSWORD_DEFAULT),
+    ':role' => 'User',
+    ':created_at' => date('Y-m-d H:i:s')
+]);
 
 // Redirect to login
 header('Location: index.php?registered=1');

@@ -21,22 +21,12 @@ if ($meeting_id === '') {
     exit();
 }
 
-$meetings_file = '../db/meetings.json';
-if (!file_exists($meetings_file)) {
-    header('Location: dashboard.php?error=Файлът със заседания не е намерен');
-    exit();
-}
+require_once __DIR__ . '/db.php';
+$pdo = getDb();
 
-$meetings = json_decode(file_get_contents($meetings_file), true);
-$meetingIndex = null;
-$meeting = null;
-foreach ($meetings as $index => $m) {
-    if (($m['id'] ?? '') === $meeting_id) {
-        $meetingIndex = $index;
-        $meeting = $m;
-        break;
-    }
-}
+$meetingStmt = $pdo->prepare('SELECT * FROM meetings WHERE id = :id');
+$meetingStmt->execute([':id' => $meeting_id]);
+$meeting = $meetingStmt->fetch();
 
 if ($meeting === null) {
     header('Location: dashboard.php?error=Заседанието не е намерено');
@@ -44,25 +34,18 @@ if ($meeting === null) {
 }
 
 // Access check (admin or secretary)
-$agencies_file = '../db/agencies.json';
-$agencies = [];
-if (file_exists($agencies_file)) {
-    $agencies = json_decode(file_get_contents($agencies_file), true);
-}
-
 $canManage = false;
 if ($_SESSION['role'] === 'Admin') {
     $canManage = true;
 } else {
-    foreach ($agencies as $agency) {
-        if (($agency['name'] ?? '') === ($meeting['agency_name'] ?? '')) {
-            foreach ($agency['participants'] as $participant) {
-                if (($participant['username'] ?? '') === $_SESSION['user'] && ($participant['role'] ?? '') === 'secretary') {
-                    $canManage = true;
-                    break 2;
-                }
-            }
-        }
+    $participantStmt = $pdo->prepare('SELECT role FROM agency_participants WHERE agency_id = :agency_id AND username = :username LIMIT 1');
+    $participantStmt->execute([
+        ':agency_id' => $meeting['agency_id'],
+        ':username' => $_SESSION['user']
+    ]);
+    $participant = $participantStmt->fetch();
+    if ($participant && $participant['role'] === 'secretary') {
+        $canManage = true;
     }
 }
 
@@ -94,9 +77,11 @@ if ($now <= $meetingEnd) {
     exit();
 }
 
-$meetings[$meetingIndex]['comments'] = $meeting_comments;
-
-file_put_contents($meetings_file, json_encode($meetings, JSON_PRETTY_PRINT), LOCK_EX);
+$updateStmt = $pdo->prepare('UPDATE meetings SET comments = :comments WHERE id = :id');
+$updateStmt->execute([
+    ':comments' => $meeting_comments,
+    ':id' => $meeting_id
+]);
 
 header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Коментарите са запазени');
 exit();

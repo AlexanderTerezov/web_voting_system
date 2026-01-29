@@ -11,55 +11,35 @@ if (!isset($_SESSION['user'])) {
 
 $meeting_id = isset($_GET['id']) ? $_GET['id'] : '';
 
-// Load meetings
-$meetings_file = '../db/meetings.json';
-if (!file_exists($meetings_file)) {
-    header('Location: dashboard.php?error=Заседанието не е намерено');
-    exit();
-}
-
-$meetings = json_decode(file_get_contents($meetings_file), true);
-
+require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/recurring_meetings.php';
-ensureRecurringMeetings($meetings, $meetings_file);
+$pdo = getDb();
+ensureRecurringMeetings($pdo);
 
-// Find the meeting
-$meeting = null;
-foreach ($meetings as $m) {
-    if ($m['id'] === $meeting_id) {
-        $meeting = $m;
-        break;
-    }
-}
+$meetingStmt = $pdo->prepare(
+    'SELECT m.*, a.name AS agency_name, a.quorum AS agency_quorum
+     FROM meetings m
+     JOIN agencies a ON a.id = m.agency_id
+     WHERE m.id = :id'
+);
+$meetingStmt->execute([':id' => $meeting_id]);
+$meeting = $meetingStmt->fetch();
 
 if (!$meeting) {
     header('Location: dashboard.php?error=Заседанието не е намерено');
     exit();
 }
 
-// Load agencies to verify access
-$agencies_file = '../db/agencies.json';
-$agencies = [];
-if (file_exists($agencies_file)) {
-    $agencies = json_decode(file_get_contents($agencies_file), true);
+$participantsStmt = $pdo->prepare('SELECT username, role FROM agency_participants WHERE agency_id = :id');
+$participantsStmt->execute([':id' => $meeting['agency_id']]);
+$participants = $participantsStmt->fetchAll();
+$participantRoles = [];
+foreach ($participants as $participant) {
+    $participantRoles[$participant['username']] = $participant['role'];
 }
 
 // Check if user has access to this meeting
-$hasAccess = false;
-if ($_SESSION['role'] === 'Admin') {
-    $hasAccess = true;
-} else {
-    foreach ($agencies as $agency) {
-        if ($agency['name'] === $meeting['agency_name']) {
-            foreach ($agency['participants'] as $participant) {
-                if ($participant['username'] === $_SESSION['user']) {
-                    $hasAccess = true;
-                    break 2;
-                }
-            }
-        }
-    }
-}
+$hasAccess = $_SESSION['role'] === 'Admin' || isset($participantRoles[$_SESSION['user']]);
 
 if (!$hasAccess) {
     header('Location: dashboard.php?error=Нямате достъп');
@@ -67,21 +47,7 @@ if (!$hasAccess) {
 }
 
 // Determine if user can manage questions (secretary or admin)
-$canManageQuestions = false;
-if ($_SESSION['role'] === 'Admin') {
-    $canManageQuestions = true;
-} else {
-    foreach ($agencies as $agency) {
-        if ($agency['name'] === $meeting['agency_name']) {
-            foreach ($agency['participants'] as $participant) {
-                if ($participant['username'] === $_SESSION['user'] && $participant['role'] === 'secretary') {
-                    $canManageQuestions = true;
-                    break 2;
-                }
-            }
-        }
-    }
-}
+$canManageQuestions = $_SESSION['role'] === 'Admin' || (($participantRoles[$_SESSION['user']] ?? '') === 'secretary');
 
 $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
 $meetingStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
@@ -104,7 +70,40 @@ $meetingActive = $now >= $meetingStart && $now <= $meetingEnd;
 $meetingStarted = $now >= $meetingStart;
 $meetingEnded = $now > $meetingEnd;
 
-$questions = isset($meeting['questions']) && is_array($meeting['questions']) ? $meeting['questions'] : [];
+$questionsStmt = $pdo->prepare('SELECT * FROM questions WHERE meeting_id = :meeting_id ORDER BY created_at ASC');
+$questionsStmt->execute([':meeting_id' => $meeting_id]);
+$questions = $questionsStmt->fetchAll();
+
+$attachmentsStmt = $pdo->prepare(
+    'SELECT a.* FROM attachments a
+     JOIN questions q ON q.id = a.question_id
+     WHERE q.meeting_id = :meeting_id'
+);
+$attachmentsStmt->execute([':meeting_id' => $meeting_id]);
+$attachmentsRows = $attachmentsStmt->fetchAll();
+$attachmentsByQuestion = [];
+foreach ($attachmentsRows as $attachment) {
+    $attachmentsByQuestion[$attachment['question_id']][] = $attachment;
+}
+
+$votesStmt = $pdo->prepare(
+    'SELECT v.question_id, v.username, v.vote FROM votes v
+     JOIN questions q ON q.id = v.question_id
+     WHERE q.meeting_id = :meeting_id'
+);
+$votesStmt->execute([':meeting_id' => $meeting_id]);
+$votesRows = $votesStmt->fetchAll();
+$votesByQuestion = [];
+foreach ($votesRows as $voteRow) {
+    $votesByQuestion[$voteRow['question_id']][$voteRow['username']] = $voteRow['vote'];
+}
+
+foreach ($questions as &$question) {
+    $qid = $question['id'];
+    $question['attachments'] = $attachmentsByQuestion[$qid] ?? [];
+    $question['votes'] = $votesByQuestion[$qid] ?? [];
+}
+unset($question);
 $recurringMap = ['Once' => 'Еднократно', 'Daily' => 'Ежедневно', 'Weekly' => 'Седмично', 'Monthly' => 'Месечно'];
 $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['recurring']]) ? $recurringMap[$meeting['recurring']] : ($meeting['recurring'] ?? '');
 ?>

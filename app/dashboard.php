@@ -15,45 +15,62 @@ $role = $_SESSION['role'];
 $loginTime = $_SESSION['login_time'];
 $roleLabel = $role === 'Admin' ? 'Администратор' : ($role === 'User' ? 'Потребител' : $role);
 
-// Load agencies
-$agencies_file = '../db/agencies.json';
-$agencies = [];
-if (file_exists($agencies_file)) {
-    $agencies = json_decode(file_get_contents($agencies_file), true);
-}
+require_once __DIR__ . '/db.php';
+$pdo = getDb();
 
-// Load meetings
-$meetings_file = '../db/meetings.json';
-$meetings = [];
-if (file_exists($meetings_file)) {
-    $meetings = json_decode(file_get_contents($meetings_file), true);
+// Load agencies and participants
+$agencies = $pdo->query('SELECT * FROM agencies ORDER BY created_at DESC')->fetchAll();
+$participantsRows = $pdo->query('SELECT agency_id, username, role FROM agency_participants')->fetchAll();
+$participantsByAgency = [];
+$rolesByAgencyUser = [];
+foreach ($participantsRows as $row) {
+    $agencyId = (int)$row['agency_id'];
+    if (!isset($participantsByAgency[$agencyId])) {
+        $participantsByAgency[$agencyId] = [];
+    }
+    $participantsByAgency[$agencyId][] = [
+        'username' => $row['username'],
+        'role' => $row['role']
+    ];
+    if (!isset($rolesByAgencyUser[$agencyId])) {
+        $rolesByAgencyUser[$agencyId] = [];
+    }
+    $rolesByAgencyUser[$agencyId][$row['username']] = $row['role'];
 }
+foreach ($agencies as &$agency) {
+    $agencyId = (int)$agency['id'];
+    $agency['participants'] = $participantsByAgency[$agencyId] ?? [];
+}
+unset($agency);
+
+// Load meetings with agency name
+$meetings = $pdo->query(
+    'SELECT m.*, a.name AS agency_name
+     FROM meetings m
+     JOIN agencies a ON a.id = m.agency_id'
+)->fetchAll();
 
 // Load users for admin
 $users = [];
 if ($role === 'Admin') {
-    $users_file = '../db/users.json';
-    if (file_exists($users_file)) {
-        $users = json_decode(file_get_contents($users_file), true);
-    }
+    $users = $pdo->query('SELECT username FROM users ORDER BY username')->fetchAll();
 }
 
 // Filter agencies for normal users and check if they are secretary
 $userAgencies = [];
 $isSecretaryInAny = false;
 if ($role !== 'Admin') {
-    foreach ($agencies as $index => $agency) {
-        foreach ($agency['participants'] as $participant) {
-            if ($participant['username'] === $username) {
-                $userAgencies[] = [
-                    'agency' => $agency,
-                    'role' => $participant['role'],
-                    'index' => $index
-                ];
-                if ($participant['role'] === 'secretary') {
-                    $isSecretaryInAny = true;
-                }
-                break;
+    foreach ($agencies as $agency) {
+        $agencyId = (int)$agency['id'];
+        if (isset($rolesByAgencyUser[$agencyId][$username])) {
+            $userRole = $rolesByAgencyUser[$agencyId][$username];
+            $userAgencies[] = [
+                'agency' => $agency,
+                'role' => $userRole,
+                'id' => $agencyId
+            ];
+            if ($userRole === 'secretary') {
+                $isSecretaryInAny = true;
             }
         }
     }
@@ -85,17 +102,8 @@ foreach ($meetings as $meeting) {
     }
     
     // Check if user is part of this agency
-    $isParticipant = false;
-    foreach ($agencies as $agency) {
-        if ($agency['name'] === $meeting['agency_name']) {
-            foreach ($agency['participants'] as $participant) {
-                if ($participant['username'] === $username || $role === 'Admin') {
-                    $isParticipant = true;
-                    break 2;
-                }
-            }
-        }
-    }
+    $agencyId = (int)$meeting['agency_id'];
+    $isParticipant = $role === 'Admin' || isset($rolesByAgencyUser[$agencyId][$username]);
     
     if ($isParticipant) {
         if ($meetingEnd >= $now) {
@@ -630,7 +638,8 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                 <?php if (empty($agencies)): ?>
                     <p style="color: #999; text-align: center;">Все още няма създадени органи.</p>
                 <?php else: ?>
-                    <?php foreach ($agencies as $index => $agency): ?>
+                    <?php foreach ($agencies as $agency): ?>
+                        <?php $agencyId = (int)$agency['id']; ?>
                         <div class="agency-card">
                             <h3><?php echo htmlspecialchars($agency['name']); ?></h3>
                             <p class="agency-info"><strong>Кворум:</strong> <?php echo htmlspecialchars($agency['quorum']); ?></p>
@@ -655,14 +664,14 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
 
                             <div class="agency-actions">
                                 <form action="delete_agency.php" method="POST" class="inline-form">
-                                    <input type="hidden" name="agency_index" value="<?php echo $index; ?>">
+                                    <input type="hidden" name="agency_id" value="<?php echo $agencyId; ?>">
                                     <button type="submit" class="delete-agency-btn" onclick="return confirm('Сигурни ли сте, че искате да изтриете този орган?')">Изтрий орган</button>
                                 </form>
 
-                                <a href="edit_agency.php?index=<?php echo $index; ?>" class="edit-agency-btn">Редактирай орган</a>
+                                <a href="edit_agency.php?id=<?php echo $agencyId; ?>" class="edit-agency-btn">Редактирай орган</a>
 
                                 <?php if ($adminIsSecretary): ?>
-                                    <a href="create_meeting.php?agency_index=<?php echo $index; ?>" class="create-meeting-btn">Създай заседание</a>
+                                    <a href="create_meeting.php?agency_id=<?php echo $agencyId; ?>" class="create-meeting-btn">Създай заседание</a>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -678,7 +687,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                     <p style="color: #999; text-align: center;">Все още не сте член на орган.</p>
                 <?php else: ?>
                     <?php foreach ($userAgencies as $item): ?>
-                        <?php $agency = $item['agency']; $userRole = $item['role']; $agencyIndex = $item['index']; ?>
+                        <?php $agency = $item['agency']; $userRole = $item['role']; $agencyId = $item['id']; ?>
                         <div class="agency-card">
                             <h3><?php echo htmlspecialchars($agency['name']); ?></h3>
                             <p class="agency-info"><strong>Вашата роля:</strong> 
@@ -701,7 +710,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                             
                             <?php if ($userRole === 'secretary'): ?>
                                 <div class="agency-actions">
-                                    <a href="create_meeting.php?agency_index=<?php echo $agencyIndex; ?>" class="create-meeting-btn">Създай заседание</a>
+                                    <a href="create_meeting.php?agency_id=<?php echo $agencyId; ?>" class="create-meeting-btn">Създай заседание</a>
                                 </div>
                             <?php endif; ?>
                         </div>

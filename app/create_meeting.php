@@ -6,31 +6,30 @@ if (!isset($_SESSION['user'])) {
     exit();
 }
 
-$agency_index = isset($_GET['agency_index']) ? intval($_GET['agency_index']) : -1;
+require_once __DIR__ . '/db.php';
+$pdo = getDb();
 
-// Load agencies
-$agencies_file = '../db/agencies.json';
-if (!file_exists($agencies_file)) {
-    header('Location: dashboard.php?error=Няма намерени органи');
-    exit();
-}
+$agency_id = isset($_GET['agency_id']) ? intval($_GET['agency_id']) : 0;
 
-$agencies = json_decode(file_get_contents($agencies_file), true);
+$agencyStmt = $pdo->prepare('SELECT id, name FROM agencies WHERE id = :id');
+$agencyStmt->execute([':id' => $agency_id]);
+$agency = $agencyStmt->fetch();
 
-if (!isset($agencies[$agency_index])) {
+if (!$agency) {
     header('Location: dashboard.php?error=Органът не е намерен');
     exit();
 }
 
-$agency = $agencies[$agency_index];
-
 // Check if user is secretary in this agency (including admin)
 $isSecretary = false;
-foreach ($agency['participants'] as $participant) {
-    if ($participant['username'] === $_SESSION['user'] && $participant['role'] === 'secretary') {
-        $isSecretary = true;
-        break;
-    }
+$participantStmt = $pdo->prepare('SELECT role FROM agency_participants WHERE agency_id = :agency_id AND username = :username LIMIT 1');
+$participantStmt->execute([
+    ':agency_id' => $agency_id,
+    ':username' => $_SESSION['user']
+]);
+$participant = $participantStmt->fetch();
+if ($participant && $participant['role'] === 'secretary') {
+    $isSecretary = true;
 }
 
 if (!$isSecretary) {
@@ -175,8 +174,7 @@ if (!$isSecretary) {
             <?php endif; ?>
             
             <form action="save_meeting.php" method="POST">
-                <input type="hidden" name="agency_index" value="<?php echo $agency_index; ?>">
-                <input type="hidden" name="agency_name" value="<?php echo htmlspecialchars($agency['name']); ?>">
+                <input type="hidden" name="agency_id" value="<?php echo $agency_id; ?>">
                 
                 <div class="form-group">
                     <label for="meeting_name">Име на заседанието</label>

@@ -22,22 +22,12 @@ if ($meeting_id === '' || $action === '') {
     exit();
 }
 
-$meetings_file = '../db/meetings.json';
-if (!file_exists($meetings_file)) {
-    header('Location: dashboard.php?error=Файлът със заседания не е намерен');
-    exit();
-}
+require_once __DIR__ . '/db.php';
+$pdo = getDb();
 
-$meetings = json_decode(file_get_contents($meetings_file), true);
-$meetingIndex = null;
-$meeting = null;
-foreach ($meetings as $index => $m) {
-    if (($m['id'] ?? '') === $meeting_id) {
-        $meetingIndex = $index;
-        $meeting = $m;
-        break;
-    }
-}
+$meetingStmt = $pdo->prepare('SELECT * FROM meetings WHERE id = :id');
+$meetingStmt->execute([':id' => $meeting_id]);
+$meeting = $meetingStmt->fetch();
 
 if ($meeting === null) {
     header('Location: dashboard.php?error=Заседанието не е намерено');
@@ -45,25 +35,18 @@ if ($meeting === null) {
 }
 
 // Access check (admin or secretary)
-$agencies_file = '../db/agencies.json';
-$agencies = [];
-if (file_exists($agencies_file)) {
-    $agencies = json_decode(file_get_contents($agencies_file), true);
-}
-
 $canManage = false;
 if ($_SESSION['role'] === 'Admin') {
     $canManage = true;
 } else {
-    foreach ($agencies as $agency) {
-        if (($agency['name'] ?? '') === ($meeting['agency_name'] ?? '')) {
-            foreach ($agency['participants'] as $participant) {
-                if (($participant['username'] ?? '') === $_SESSION['user'] && ($participant['role'] ?? '') === 'secretary') {
-                    $canManage = true;
-                    break 2;
-                }
-            }
-        }
+    $participantStmt = $pdo->prepare('SELECT role FROM agency_participants WHERE agency_id = :agency_id AND username = :username LIMIT 1');
+    $participantStmt->execute([
+        ':agency_id' => $meeting['agency_id'],
+        ':username' => $_SESSION['user']
+    ]);
+    $participant = $participantStmt->fetch();
+    if ($participant && $participant['role'] === 'secretary') {
+        $canManage = true;
     }
 }
 
@@ -95,7 +78,11 @@ if ($action === 'end_early') {
         header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Заседанието не е активно');
         exit();
     }
-    $meetings[$meetingIndex]['ended_at'] = $now->format('Y-m-d H:i:s');
+    $updateStmt = $pdo->prepare('UPDATE meetings SET ended_at = :ended_at WHERE id = :id');
+    $updateStmt->execute([
+        ':ended_at' => $now->format('Y-m-d H:i:s'),
+        ':id' => $meeting_id
+    ]);
 } elseif ($action === 'extend') {
     if ($extendMinutes < 1 || $extendMinutes > 240) {
         header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Невалидно удължаване');
@@ -105,20 +92,26 @@ if ($action === 'end_early') {
         header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Заседанието вече е приключило');
         exit();
     }
-    $meetings[$meetingIndex]['duration'] = $duration + $extendMinutes;
+    $updateStmt = $pdo->prepare('UPDATE meetings SET duration = :duration WHERE id = :id');
+    $updateStmt->execute([
+        ':duration' => $duration + $extendMinutes,
+        ':id' => $meeting_id
+    ]);
 } elseif ($action === 'start_early') {
     $scheduledStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
     if ($now >= $scheduledStart) {
         header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Заседанието вече е започнало');
         exit();
     }
-    $meetings[$meetingIndex]['started_at'] = $now->format('Y-m-d H:i:s');
+    $updateStmt = $pdo->prepare('UPDATE meetings SET started_at = :started_at WHERE id = :id');
+    $updateStmt->execute([
+        ':started_at' => $now->format('Y-m-d H:i:s'),
+        ':id' => $meeting_id
+    ]);
 } else {
     header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Невалидно действие');
     exit();
 }
-
-file_put_contents($meetings_file, json_encode($meetings, JSON_PRETTY_PRINT), LOCK_EX);
 
 header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&success=Времето на заседанието е обновено');
 exit();

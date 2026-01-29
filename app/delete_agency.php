@@ -11,21 +11,33 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
-$agency_index = intval($_POST['agency_index']);
+$agency_id = intval($_POST['agency_id']);
 
-$agencies_file = '../db/agencies.json';
-if (file_exists($agencies_file)) {
-    $agencies = json_decode(file_get_contents($agencies_file), true);
-    
-    if (isset($agencies[$agency_index])) {
-        array_splice($agencies, $agency_index, 1);
-        file_put_contents($agencies_file, json_encode($agencies, JSON_PRETTY_PRINT));
-        header('Location: dashboard.php?success=Органът е изтрит успешно');
-    } else {
-        header('Location: dashboard.php?error=Органът не е намерен');
-    }
-} else {
-    header('Location: dashboard.php?error=Няма намерени органи');
+require_once __DIR__ . '/db.php';
+$pdo = getDb();
+
+$agencyStmt = $pdo->prepare('SELECT id FROM agencies WHERE id = :id');
+$agencyStmt->execute([':id' => $agency_id]);
+if (!$agencyStmt->fetchColumn()) {
+    header('Location: dashboard.php?error=Органът не е намерен');
+    exit();
 }
+
+$pdo->beginTransaction();
+$pdo->prepare('DELETE FROM votes WHERE question_id IN (SELECT id FROM questions WHERE meeting_id IN (SELECT id FROM meetings WHERE agency_id = :id))')
+    ->execute([':id' => $agency_id]);
+$pdo->prepare('DELETE FROM attachments WHERE question_id IN (SELECT id FROM questions WHERE meeting_id IN (SELECT id FROM meetings WHERE agency_id = :id))')
+    ->execute([':id' => $agency_id]);
+$pdo->prepare('DELETE FROM questions WHERE meeting_id IN (SELECT id FROM meetings WHERE agency_id = :id)')
+    ->execute([':id' => $agency_id]);
+$pdo->prepare('DELETE FROM meetings WHERE agency_id = :id')
+    ->execute([':id' => $agency_id]);
+$pdo->prepare('DELETE FROM agency_participants WHERE agency_id = :id')
+    ->execute([':id' => $agency_id]);
+$pdo->prepare('DELETE FROM agencies WHERE id = :id')
+    ->execute([':id' => $agency_id]);
+$pdo->commit();
+
+header('Location: dashboard.php?success=Органът е изтрит успешно');
 exit();
 ?>
