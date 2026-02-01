@@ -89,7 +89,7 @@ if ($now < $meetingStart || $now > $meetingEnd) {
 $insertVote = $pdo->prepare(
     'INSERT INTO votes (question_id, username, vote, created_at)
      VALUES (:question_id, :username, :vote, :created_at)
-     ON CONFLICT(question_id, username) DO UPDATE SET vote = excluded.vote, created_at = excluded.created_at'
+     ON DUPLICATE KEY UPDATE vote = VALUES(vote), created_at = VALUES(created_at)'
 );
 $insertVote->execute([
     ':question_id' => $question_id,

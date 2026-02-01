@@ -16,3 +16,15 @@
 (other)
 Maybe fix the language / change to bg / find proper terms
 General Cleanup
+Add:
+- MySQL ✅
+- Meetings with PlantUML
+- Automatic agenda for next meeting
+- Secretary does everything
+- Moving agenda items
+- Secretary can select current agenda item
+- Allow creating different roles; secretary may not vote
+- Quorum calculated in a different way
+- Users by email (not username)
+- Dropdowns
+- Pasting support

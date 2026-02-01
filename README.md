@@ -10,8 +10,8 @@
 - Генериране на протокол след приключване на заседание
 
 ## Технологии
-- PHP + SQLite (PDO)
-- Данните се пазят в `db/database.sqlite`
+- PHP + MySQL (PDO)
+- Данните се пазят в MySQL база (виж променливите `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`)
 - Прикачените файлове се пазят в `app/uploads/`
 
 ## Стартиране (локално)
@@ -22,30 +22,36 @@
 2. Отвори: `http://localhost:8000/index.php`
 
 ## Акаунти и роли
-- Данните за потребителите са в `db/database.sqlite`.
+- Данните за потребителите са в MySQL базата.
 - Паролите са хеширани. За вход можеш:
   - да създадеш нов акаунт през регистрацията, или
-  - да смениш паролата с SQL заявка (напр. през `sqlite3`), като използваш нов хеш, генериран чрез:
+  - да смениш паролата с SQL заявка (напр. през `mysql`), като използваш нов хеш, генериран чрез:
     ```bash
     php -r "echo password_hash('НоваПарола', PASSWORD_DEFAULT);"
     ```
     и после:
     ```bash
-    sqlite3 db/database.sqlite "UPDATE users SET password='ХЕШ' WHERE username='Admin';"
+    mysql -u root -p -D web_voting_system -e "UPDATE users SET password='ХЕШ' WHERE username='Admin';"
     ```
   - можеш и да добавиш като:
 
     ```bash
-    sqlite3 db/database.sqlite "INSERT INTO users (username,email,password,role,created_at) VALUES ('admin2','admin2@example.com','<HASH>','Admin',datetime('now'));"
+    mysql -u root -p -D web_voting_system -e "INSERT INTO users (username,email,password,role,created_at) VALUES ('admin2','admin2@example.com','<HASH>','Admin',NOW());"
+    ```
+  - инициализация на таблицата:
+    ```bash
+    CREATE DATABASE web_voting_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
     ```
 
 
 ## Права за писане
 За да работят регистрация, създаване на заседания и качване на файлове, уеб сървърът трябва да има write права върху:
-- `db/` (за `database.sqlite`)
+- MySQL база данни (достъп през `DB_*` променливи)
 - `app/uploads/`
 
 ## Структура
 - `app/` — PHP страници (UI + логика)
-- `db/` — SQLite база данни
+- (MySQL база данни)
 - `app/uploads/` — прикачени файлове
+
+
