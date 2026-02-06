@@ -124,4 +124,49 @@ function seedAdminUser(PDO $pdo): void
         ':created_at' => date('Y-m-d H:i:s')
     ]);
 }
+
+function normalizeRoles($roles): array
+{
+    $values = [];
+    if (is_string($roles)) {
+        $values = explode(',', $roles);
+    } elseif (is_array($roles)) {
+        $values = $roles;
+    }
+
+    $allowed = ['member' => true, 'secretary' => true];
+    $normalized = [];
+    foreach ($values as $role) {
+        $role = strtolower(trim((string)$role));
+        if ($role === '') {
+            continue;
+        }
+        if (!isset($allowed[$role])) {
+            continue;
+        }
+        $normalized[$role] = true;
+    }
+
+    if (empty($normalized)) {
+        $normalized['member'] = true;
+    }
+
+    return array_keys($normalized);
+}
+
+function serializeRoles($roles): string
+{
+    $normalized = normalizeRoles($roles);
+    sort($normalized);
+    return implode(',', $normalized);
+}
+
+function hasRole($roles, string $role): bool
+{
+    $role = strtolower(trim($role));
+    if ($role === '') {
+        return false;
+    }
+    return in_array($role, normalizeRoles($roles), true);
+}
 ?>

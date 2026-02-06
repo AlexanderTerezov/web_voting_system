@@ -44,7 +44,7 @@ if ($_SESSION['role'] === 'Admin') {
         ':username' => $_SESSION['user']
     ]);
     $participant = $participantStmt->fetch();
-    if ($participant && $participant['role'] === 'secretary') {
+    if ($participant && hasRole($participant['role'], 'secretary')) {
         $canManage = true;
     }
 }

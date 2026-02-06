@@ -348,7 +348,7 @@ $pageMeetings = array_slice($userMeetings, $start, $perPage);
                         foreach ($agencies as $agency) {
                             if ($agency['name'] === $meeting['agency_name']) {
                                 foreach ($agency['participants'] as $participant) {
-                                    if ($participant['username'] === $username && $participant['role'] === 'secretary') {
+                                    if ($participant['username'] === $username && hasRole($participant['role'], 'secretary')) {
                                         $canDelete = true;
                                         break 2;
                                     }

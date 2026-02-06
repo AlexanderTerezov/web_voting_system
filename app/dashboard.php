@@ -43,18 +43,21 @@ foreach ($agencies as &$agency) {
 }
 unset($agency);
 
+function formatRolesLabel($roles): string
+{
+    $labels = [];
+    foreach (normalizeRoles($roles) as $role) {
+        $labels[] = $role === 'secretary' ? 'Секретар' : 'Член';
+    }
+    return implode(', ', $labels);
+}
+
 // Load meetings with agency name
 $meetings = $pdo->query(
     'SELECT m.*, a.name AS agency_name
      FROM meetings m
      JOIN agencies a ON a.id = m.agency_id'
 )->fetchAll();
-
-// Load users for admin
-$users = [];
-if ($role === 'Admin') {
-    $users = $pdo->query('SELECT username FROM users ORDER BY username')->fetchAll();
-}
 
 // Filter agencies for normal users and check if they are secretary
 $userAgencies = [];
@@ -63,13 +66,13 @@ if ($role !== 'Admin') {
     foreach ($agencies as $agency) {
         $agencyId = (int)$agency['id'];
         if (isset($rolesByAgencyUser[$agencyId][$username])) {
-            $userRole = $rolesByAgencyUser[$agencyId][$username];
+            $userRoles = normalizeRoles($rolesByAgencyUser[$agencyId][$username]);
             $userAgencies[] = [
                 'agency' => $agency,
-                'role' => $userRole,
+                'roles' => $userRoles,
                 'id' => $agencyId
             ];
-            if ($userRole === 'secretary') {
+            if (in_array('secretary', $userRoles, true)) {
                 $isSecretaryInAny = true;
             }
         }
@@ -218,7 +221,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
             color: var(--muted);
             margin-bottom: 6px;
         }
-        .form-group input, .form-group select{
+        .form-group input:not([type="checkbox"]), .form-group select{
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border);
@@ -228,7 +231,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
             background: #fff;
             transition: border-color 120ms ease, box-shadow 120ms ease;
         }
-        .form-group input:focus, .form-group select:focus{
+        .form-group input:not([type="checkbox"]):focus, .form-group select:focus{
             border-color: rgba(31,75,153,0.55);
             box-shadow: 0 0 0 4px rgba(31,75,153,0.12);
         }
@@ -238,7 +241,26 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
             margin-bottom: 8px;
             align-items: center;
         }
-        .participant-item select{ flex: 1; }
+        .participant-item input[type="email"]{ flex: 1.2; }
+        .participant-roles{
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+        .participant-roles label{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--muted);
+            padding: 6px 8px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff;
+            margin: 0;
+        }
+        .participant-roles input{ margin: 0; }
         .add-participant-btn, .remove-participant-btn{
             padding: 8px 12px;
             border: 1px solid rgba(17,24,39,0.12);
@@ -454,7 +476,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                     foreach ($agencies as $agency) {
                         if ($agency['name'] === $meeting['agency_name']) {
                             foreach ($agency['participants'] as $participant) {
-                                if ($participant['username'] === $username && $participant['role'] === 'secretary') {
+                                if ($participant['username'] === $username && hasRole($participant['role'], 'secretary')) {
                                     $canDelete = true;
                                     break 2;
                                 }
@@ -526,7 +548,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                     foreach ($agencies as $agency) {
                         if ($agency['name'] === $meeting['agency_name']) {
                             foreach ($agency['participants'] as $participant) {
-                                if ($participant['username'] === $username && $participant['role'] === 'secretary') {
+                                if ($participant['username'] === $username && hasRole($participant['role'], 'secretary')) {
                                     $canDelete = true;
                                     break 2;
                                 }
@@ -609,19 +631,12 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                     <div class="form-group">
                         <label>Участници</label>
                         <div id="participantsContainer">
-                            <div class="participant-item">
-                                <select name="participants[]" required>
-                                    <option value="">Изберете потребител</option>
-                                    <?php foreach ($users as $user): ?>
-                                        <option value="<?php echo htmlspecialchars($user['username']); ?>">
-                                            <?php echo htmlspecialchars($user['username']); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <select name="roles[]" required>
-                                    <option value="member">Член</option>
-                                    <option value="secretary">Секретар</option>
-                                </select>
+                            <div class="participant-item" data-index="0">
+                                <input type="email" class="participant-email" name="participants[0][email]" required placeholder="email@example.com">
+                                <div class="participant-roles">
+                                    <label><input type="checkbox" class="participant-role" name="participants[0][roles][]" value="member" checked>Член</label>
+                                    <label><input type="checkbox" class="participant-role" name="participants[0][roles][]" value="secretary">Секретар</label>
+                                </div>
                                 <button type="button" class="remove-participant-btn" onclick="removeParticipant(this)">Премахни</button>
                             </div>
                         </div>
@@ -651,13 +666,13 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                                 <?php 
                                 $adminIsSecretary = false;
                                 foreach ($agency['participants'] as $participant): 
-                                    if ($participant['username'] === $_SESSION['user'] && $participant['role'] === 'secretary') {
+                                    if ($participant['username'] === $_SESSION['user'] && hasRole($participant['role'], 'secretary')) {
                                         $adminIsSecretary = true;
                                     }
                                 ?>
-                                    <span class="participant <?php echo $participant['role'] === 'secretary' ? 'secretary' : ''; ?>">
+                                    <span class="participant <?php echo hasRole($participant['role'], 'secretary') ? 'secretary' : ''; ?>">
                                         <?php echo htmlspecialchars($participant['username']); ?>
-                                        <?php echo $participant['role'] === 'secretary' ? '(Секретар)' : ''; ?>
+                                        <?php echo '(' . htmlspecialchars(formatRolesLabel($participant['role'])) . ')'; ?>
                                     </span>
                                 <?php endforeach; ?>
                             </div>
@@ -687,12 +702,12 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                     <p style="color: #999; text-align: center;">Все още не сте член на орган.</p>
                 <?php else: ?>
                     <?php foreach ($userAgencies as $item): ?>
-                        <?php $agency = $item['agency']; $userRole = $item['role']; $agencyId = $item['id']; ?>
+                        <?php $agency = $item['agency']; $userRoles = $item['roles']; $agencyId = $item['id']; ?>
                         <div class="agency-card">
                             <h3><?php echo htmlspecialchars($agency['name']); ?></h3>
                             <p class="agency-info"><strong>Вашата роля:</strong> 
-                                <span class="participant <?php echo $userRole === 'secretary' ? 'secretary' : ''; ?>">
-                                    <?php echo $userRole === 'secretary' ? 'Секретар' : 'Член'; ?>
+                                <span class="participant <?php echo in_array('secretary', $userRoles, true) ? 'secretary' : ''; ?>">
+                                    <?php echo htmlspecialchars(formatRolesLabel($userRoles)); ?>
                                 </span>
                             </p>
                             <p class="agency-info"><strong>Кворум:</strong> <?php echo htmlspecialchars($agency['quorum']); ?></p>
@@ -701,14 +716,14 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                             <div class="participant-list">
                                 <strong>Всички участници:</strong><br>
                                 <?php foreach ($agency['participants'] as $participant): ?>
-                                    <span class="participant <?php echo $participant['role'] === 'secretary' ? 'secretary' : ''; ?>">
+                                    <span class="participant <?php echo hasRole($participant['role'], 'secretary') ? 'secretary' : ''; ?>">
                                         <?php echo htmlspecialchars($participant['username']); ?>
-                                        <?php echo $participant['role'] === 'secretary' ? '(Секретар)' : ''; ?>
+                                        <?php echo '(' . htmlspecialchars(formatRolesLabel($participant['role'])) . ')'; ?>
                                     </span>
                                 <?php endforeach; ?>
                             </div>
                             
-                            <?php if ($userRole === 'secretary'): ?>
+                            <?php if (in_array('secretary', $userRoles, true)): ?>
                                 <div class="agency-actions">
                                     <a href="create_meeting.php?agency_id=<?php echo $agencyId; ?>" class="create-meeting-btn">Създай заседание</a>
                                 </div>
@@ -722,20 +737,51 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
 
     <script>
         // Agency form functions
+        function assignParticipantIndex(item, index) {
+            item.dataset.index = index;
+            const emailInput = item.querySelector('.participant-email');
+            if (emailInput) {
+                emailInput.name = `participants[${index}][email]`;
+            }
+            const roleInputs = item.querySelectorAll('.participant-role');
+            roleInputs.forEach((input) => {
+                input.name = `participants[${index}][roles][]`;
+            });
+        }
+
+        function resetParticipantItem(item) {
+            const emailInput = item.querySelector('.participant-email');
+            if (emailInput) {
+                emailInput.value = '';
+            }
+            const roleInputs = item.querySelectorAll('.participant-role');
+            roleInputs.forEach((input) => {
+                input.checked = input.value === 'member';
+            });
+        }
+
+        function reindexParticipants() {
+            const container = document.getElementById('participantsContainer');
+            Array.from(container.children).forEach((item, index) => {
+                assignParticipantIndex(item, index);
+            });
+        }
+
         function addParticipant() {
             const container = document.getElementById('participantsContainer');
             const newItem = container.firstElementChild.cloneNode(true);
-            newItem.querySelector('select[name="participants[]"]').value = '';
-            newItem.querySelector('select[name="roles[]"]').value = 'member';
+            resetParticipantItem(newItem);
             container.appendChild(newItem);
+            reindexParticipants();
         }
 
         function removeParticipant(btn) {
             const container = document.getElementById('participantsContainer');
             if (container.children.length > 1) {
                 btn.parentElement.remove();
+                reindexParticipants();
             } else {
-                alert('Нужен е поне един участник');
+                alert('\u041d\u0443\u0436\u0435\u043d \u0435 \u043f\u043e\u043d\u0435 \u0435\u0434\u0438\u043d \u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a');
             }
         }
     </script>

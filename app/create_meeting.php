@@ -28,7 +28,7 @@ $participantStmt->execute([
     ':username' => $_SESSION['user']
 ]);
 $participant = $participantStmt->fetch();
-if ($participant && $participant['role'] === 'secretary') {
+if ($participant && hasRole($participant['role'], 'secretary')) {
     $isSecretary = true;
 }
 

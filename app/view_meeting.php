@@ -47,7 +47,7 @@ if (!$hasAccess) {
 }
 
 // Determine if user can manage questions (secretary or admin)
-$canManageQuestions = $_SESSION['role'] === 'Admin' || (($participantRoles[$_SESSION['user']] ?? '') === 'secretary');
+$canManageQuestions = $_SESSION['role'] === 'Admin' || hasRole($participantRoles[$_SESSION['user']] ?? '', 'secretary');
 
 $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
 $meetingStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));

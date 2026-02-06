@@ -32,7 +32,7 @@ $participantStmt->execute([
     ':username' => $_SESSION['user']
 ]);
 $participant = $participantStmt->fetch();
-$isSecretary = $participant && $participant['role'] === 'secretary';
+$isSecretary = $participant && hasRole($participant['role'], 'secretary');
 
 if (!$isSecretary) {
     header('Location: dashboard.php?error=Само секретари могат да изтриват заседания');

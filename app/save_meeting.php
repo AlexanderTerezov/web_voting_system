@@ -41,7 +41,7 @@ $participantStmt->execute([
     ':username' => $_SESSION['user']
 ]);
 $participant = $participantStmt->fetch();
-if (!$participant || $participant['role'] !== 'secretary') {
+if (!$participant || !hasRole($participant['role'], 'secretary')) {
     header('Location: dashboard.php?error=Само секретари могат да създават заседания');
     exit();
 }

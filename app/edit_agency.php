@@ -20,14 +20,9 @@ if (!$agency) {
     exit();
 }
 
-$participantsStmt = $pdo->prepare('SELECT username, role FROM agency_participants WHERE agency_id = :id');
+$participantsStmt = $pdo->prepare('SELECT ap.username, ap.role, u.email FROM agency_participants ap LEFT JOIN users u ON u.username = ap.username WHERE ap.agency_id = :id');
 $participantsStmt->execute([':id' => $agency_id]);
 $agency['participants'] = $participantsStmt->fetchAll();
-
-// Load users
-$users = [];
-$usersStmt = $pdo->query('SELECT username FROM users ORDER BY username');
-$users = $usersStmt->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -82,7 +77,7 @@ $users = $usersStmt->fetchAll();
             color: var(--muted);
             margin-bottom: 6px;
         }
-        .form-group input, .form-group select{
+        .form-group input:not([type="checkbox"]), .form-group select{
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border);
@@ -92,7 +87,7 @@ $users = $usersStmt->fetchAll();
             background: #fff;
             transition: border-color 120ms ease, box-shadow 120ms ease;
         }
-        .form-group input:focus, .form-group select:focus{
+        .form-group input:not([type="checkbox"]):focus, .form-group select:focus{
             border-color: rgba(31,75,153,0.55);
             box-shadow: 0 0 0 4px rgba(31,75,153,0.12);
         }
@@ -102,7 +97,26 @@ $users = $usersStmt->fetchAll();
             margin-bottom: 8px;
             align-items: center;
         }
-        .participant-item select{ flex: 1; }
+        .participant-item input[type="email"]{ flex: 1.2; }
+        .participant-roles{
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+        .participant-roles label{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--muted);
+            padding: 6px 8px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff;
+            margin: 0;
+        }
+        .participant-roles input{ margin: 0; }
         .add-participant-btn, .remove-participant-btn{
             padding: 8px 12px;
             border: 1px solid rgba(17,24,39,0.12);
@@ -187,22 +201,21 @@ $users = $usersStmt->fetchAll();
                 
                 <div class="form-group">
                     <label>Участници</label>
+                                        <?php
+                    $participantsForForm = $agency['participants'];
+                    if (empty($participantsForForm)) {
+                        $participantsForForm = [['email' => '', 'role' => 'member']];
+                    }
+                    ?>
                     <div id="participantsContainer">
-                        <?php foreach ($agency['participants'] as $participant): ?>
-                            <div class="participant-item">
-                                <select name="participants[]" required>
-                                    <option value="">Изберете потребител</option>
-                                    <?php foreach ($users as $user): ?>
-                                        <option value="<?php echo htmlspecialchars($user['username']); ?>" 
-                                            <?php echo $user['username'] === $participant['username'] ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($user['username']); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <select name="roles[]" required>
-                                    <option value="member" <?php echo $participant['role'] === 'member' ? 'selected' : ''; ?>>Член</option>
-                                    <option value="secretary" <?php echo $participant['role'] === 'secretary' ? 'selected' : ''; ?>>Секретар</option>
-                                </select>
+                        <?php foreach ($participantsForForm as $index => $participant): ?>
+                            <?php $roles = normalizeRoles($participant['role'] ?? 'member'); ?>
+                            <div class="participant-item" data-index="<?php echo $index; ?>">
+                                <input type="email" class="participant-email" name="participants[<?php echo $index; ?>][email]" value="<?php echo htmlspecialchars($participant['email'] ?? ''); ?>" required placeholder="email@example.com">
+                                <div class="participant-roles">
+                                    <label><input type="checkbox" class="participant-role" name="participants[<?php echo $index; ?>][roles][]" value="member" <?php echo in_array('member', $roles, true) ? 'checked' : ''; ?>>Член</label>
+                                    <label><input type="checkbox" class="participant-role" name="participants[<?php echo $index; ?>][roles][]" value="secretary" <?php echo in_array('secretary', $roles, true) ? 'checked' : ''; ?>>Секретар</label>
+                                </div>
                                 <button type="button" class="remove-participant-btn" onclick="removeParticipant(this)">Премахни</button>
                             </div>
                         <?php endforeach; ?>
@@ -216,20 +229,51 @@ $users = $usersStmt->fetchAll();
     </div>
 
     <script>
+        function assignParticipantIndex(item, index) {
+            item.dataset.index = index;
+            const emailInput = item.querySelector('.participant-email');
+            if (emailInput) {
+                emailInput.name = `participants[${index}][email]`;
+            }
+            const roleInputs = item.querySelectorAll('.participant-role');
+            roleInputs.forEach((input) => {
+                input.name = `participants[${index}][roles][]`;
+            });
+        }
+
+        function resetParticipantItem(item) {
+            const emailInput = item.querySelector('.participant-email');
+            if (emailInput) {
+                emailInput.value = '';
+            }
+            const roleInputs = item.querySelectorAll('.participant-role');
+            roleInputs.forEach((input) => {
+                input.checked = input.value === 'member';
+            });
+        }
+
+        function reindexParticipants() {
+            const container = document.getElementById('participantsContainer');
+            Array.from(container.children).forEach((item, index) => {
+                assignParticipantIndex(item, index);
+            });
+        }
+
         function addParticipant() {
             const container = document.getElementById('participantsContainer');
             const newItem = container.firstElementChild.cloneNode(true);
-            newItem.querySelector('select[name="participants[]"]').value = '';
-            newItem.querySelector('select[name="roles[]"]').value = 'member';
+            resetParticipantItem(newItem);
             container.appendChild(newItem);
+            reindexParticipants();
         }
 
         function removeParticipant(btn) {
             const container = document.getElementById('participantsContainer');
             if (container.children.length > 1) {
                 btn.parentElement.remove();
+                reindexParticipants();
             } else {
-                alert('Нужен е поне един участник');
+                alert('\u041d\u0443\u0436\u0435\u043d \u0435 \u043f\u043e\u043d\u0435 \u0435\u0434\u0438\u043d \u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a');
             }
         }
     </script>
