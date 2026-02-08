@@ -16,9 +16,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $meeting_id = trim($_POST['meeting_id'] ?? '');
 $question_id = trim($_POST['question_id'] ?? '');
 $vote = trim($_POST['vote'] ?? '');
+$vote_for = trim($_POST['vote_for'] ?? '');
+$statement = trim($_POST['statement'] ?? '');
 
 $allowedVotes = ['yes', 'no', 'abstain'];
-if ($meeting_id === '' || $question_id === '' || !in_array($vote, $allowedVotes, true)) {
+if ($meeting_id === '' || $question_id === '' || $vote_for === '' || !in_array($vote, $allowedVotes, true)) {
     header('Location: dashboard.php?error=Невалиден вот');
     exit();
 }
@@ -35,31 +37,50 @@ if ($meeting === null) {
     exit();
 }
 
-$questionStmt = $pdo->prepare('SELECT id FROM questions WHERE id = :question_id AND meeting_id = :meeting_id');
+$questionStmt = $pdo->prepare('SELECT id, status FROM questions WHERE id = :question_id AND meeting_id = :meeting_id');
 $questionStmt->execute([
     ':question_id' => $question_id,
     ':meeting_id' => $meeting_id
 ]);
-if (!$questionStmt->fetchColumn()) {
+$question = $questionStmt->fetch();
+if (!$question) {
     header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Точката не е намерена');
     exit();
 }
 
-// Access check (admin or participant)
-$hasAccess = false;
+if (($question['status'] ?? 'future') !== 'current') {
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=?????????????????????? ?? ?????????????????? ???????? ???? ?????????????????? ??????????');
+    exit();
+}
+
+// Access check (admin or secretary)
+$canRecordVotes = false;
 if ($_SESSION['role'] === 'Admin') {
-    $hasAccess = true;
+    $canRecordVotes = true;
 } else {
-    $participantStmt = $pdo->prepare('SELECT 1 FROM agency_participants WHERE agency_id = :agency_id AND username = :username');
+    $participantStmt = $pdo->prepare('SELECT role FROM agency_participants WHERE agency_id = :agency_id AND username = :username LIMIT 1');
     $participantStmt->execute([
         ':agency_id' => $meeting['agency_id'],
         ':username' => $_SESSION['user']
     ]);
-    $hasAccess = (bool)$participantStmt->fetchColumn();
+    $participant = $participantStmt->fetch();
+    if ($participant && hasRole($participant['role'], 'secretary')) {
+        $canRecordVotes = true;
+    }
 }
 
-if (!$hasAccess) {
-    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Нямате достъп');
+if (!$canRecordVotes) {
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=???? ???????? ???? ?? ??????? ???????');
+    exit();
+}
+
+$targetStmt = $pdo->prepare('SELECT 1 FROM agency_participants WHERE agency_id = :agency_id AND username = :username');
+$targetStmt->execute([
+    ':agency_id' => $meeting['agency_id'],
+    ':username' => $vote_for
+]);
+if (!$targetStmt->fetchColumn()) {
+    header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=????????? ???????? ?? ?????????');
     exit();
 }
 
@@ -86,15 +107,18 @@ if ($now < $meetingStart || $now > $meetingEnd) {
     exit();
 }
 
+$statementValue = $statement !== '' ? $statement : null;
+
 $insertVote = $pdo->prepare(
-    'INSERT INTO votes (question_id, username, vote, created_at)
-     VALUES (:question_id, :username, :vote, :created_at)
-     ON DUPLICATE KEY UPDATE vote = VALUES(vote), created_at = VALUES(created_at)'
+    'INSERT INTO votes (question_id, username, vote, statement, created_at)
+     VALUES (:question_id, :username, :vote, :statement, :created_at)
+     ON DUPLICATE KEY UPDATE vote = VALUES(vote), statement = VALUES(statement), created_at = VALUES(created_at)'
 );
 $insertVote->execute([
     ':question_id' => $question_id,
-    ':username' => $_SESSION['user'],
+    ':username' => $vote_for,
     ':vote' => $vote,
+    ':statement' => $statementValue,
     ':created_at' => date('Y-m-d H:i:s')
 ]);
 

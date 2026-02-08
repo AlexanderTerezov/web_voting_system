@@ -129,19 +129,21 @@ $question = [
     'details' => $question_details,
     'attachments' => $attachments,
     'votes' => [],
+    'status' => 'future',
     'created_by' => $_SESSION['user'],
     'created_at' => date('Y-m-d H:i:s')
 ];
 
 $insertQuestion = $pdo->prepare(
-    'INSERT INTO questions (id, meeting_id, text, details, created_by, created_at)
-     VALUES (:id, :meeting_id, :text, :details, :created_by, :created_at)'
+    'INSERT INTO questions (id, meeting_id, text, details, status, created_by, created_at)
+     VALUES (:id, :meeting_id, :text, :details, :status, :created_by, :created_at)'
 );
 $insertQuestion->execute([
     ':id' => $question['id'],
     ':meeting_id' => $meeting_id,
     ':text' => $question['text'],
     ':details' => $question['details'],
+    ':status' => $question['status'],
     ':created_by' => $question['created_by'],
     ':created_at' => $question['created_at']
 ]);

@@ -78,18 +78,23 @@ $questionsStmt->execute([':meeting_id' => $meeting_id]);
 $questions = $questionsStmt->fetchAll();
 
 $votesStmt = $pdo->prepare(
-    'SELECT v.question_id, v.username, v.vote FROM votes v
+    'SELECT v.question_id, v.username, v.vote, v.statement FROM votes v
      JOIN questions q ON q.id = v.question_id
      WHERE q.meeting_id = :meeting_id'
 );
 $votesStmt->execute([':meeting_id' => $meeting_id]);
 $votesRows = $votesStmt->fetchAll();
 $votesByQuestion = [];
+$statementsByQuestion = [];
 foreach ($votesRows as $voteRow) {
-    $votesByQuestion[$voteRow['question_id']][$voteRow['username']] = $voteRow['vote'];
+    $qid = $voteRow['question_id'];
+    $username = $voteRow['username'];
+    $votesByQuestion[$qid][$username] = $voteRow['vote'];
+    $statementsByQuestion[$qid][$username] = $voteRow['statement'];
 }
 foreach ($questions as &$question) {
     $question['votes'] = $votesByQuestion[$question['id']] ?? [];
+    $question['statements'] = $statementsByQuestion[$question['id']] ?? [];
 }
 unset($question);
 $attendance = [];
@@ -270,6 +275,7 @@ $autoPrint = isset($_GET['print']) && $_GET['print'] === '1';
             <?php foreach ($questions as $index => $question): ?>
                 <?php
                 $votes = isset($question['votes']) && is_array($question['votes']) ? $question['votes'] : [];
+                $statements = isset($question['statements']) && is_array($question['statements']) ? $question['statements'] : [];
                 $voteMap = [];
                 $voteLabels = ['yes' => 'Да', 'no' => 'Не', 'abstain' => 'Въздържал се'];
                 $isAssoc = array_keys($votes) !== range(0, count($votes) - 1);
@@ -296,6 +302,7 @@ $autoPrint = isset($_GET['print']) && $_GET['print'] === '1';
                             <tr>
                                 <th>Участник</th>
                                 <th>Вот</th>
+                                <th>Изказване</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -304,15 +311,17 @@ $autoPrint = isset($_GET['print']) && $_GET['print'] === '1';
                                     <?php
                                     $rawVoteValue = $voteMap[$username] ?? null;
                                     $voteValue = $rawVoteValue !== null && isset($voteLabels[$rawVoteValue]) ? $voteLabels[$rawVoteValue] : 'няма вот';
+                                    $statementValue = $statements[$username] ?? '';
                                     ?>
                                     <tr>
                                         <td><?php echo htmlspecialchars($username); ?></td>
                                         <td><?php echo htmlspecialchars($voteValue); ?></td>
+                                        <td><?php echo htmlspecialchars($statementValue !== '' ? $statementValue : '—'); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="2" class="muted">Няма участници за този орган.</td>
+                                    <td colspan="3" class="muted">Няма участници за този орган.</td>
                                 </tr>
                             <?php endif; ?>
                         </tbody>

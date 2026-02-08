@@ -87,23 +87,69 @@ foreach ($attachmentsRows as $attachment) {
 }
 
 $votesStmt = $pdo->prepare(
-    'SELECT v.question_id, v.username, v.vote FROM votes v
+    'SELECT v.question_id, v.username, v.vote, v.statement FROM votes v
      JOIN questions q ON q.id = v.question_id
      WHERE q.meeting_id = :meeting_id'
 );
 $votesStmt->execute([':meeting_id' => $meeting_id]);
 $votesRows = $votesStmt->fetchAll();
 $votesByQuestion = [];
+$statementsByQuestion = [];
 foreach ($votesRows as $voteRow) {
-    $votesByQuestion[$voteRow['question_id']][$voteRow['username']] = $voteRow['vote'];
+    $qid = $voteRow['question_id'];
+    $username = $voteRow['username'];
+    $votesByQuestion[$qid][$username] = $voteRow['vote'];
+    $statementsByQuestion[$qid][$username] = $voteRow['statement'];
 }
 
 foreach ($questions as &$question) {
     $qid = $question['id'];
     $question['attachments'] = $attachmentsByQuestion[$qid] ?? [];
     $question['votes'] = $votesByQuestion[$qid] ?? [];
+    $question['statements'] = $statementsByQuestion[$qid] ?? [];
 }
 unset($question);
+
+$questionNumbers = [];
+foreach ($questions as $index => $question) {
+    if (!empty($question['id'])) {
+        $questionNumbers[$question['id']] = $index + 1;
+    }
+}
+
+$currentQuestion = null;
+$futureQuestions = [];
+$pastQuestions = [];
+foreach ($questions as $question) {
+    $status = $question['status'] ?? 'future';
+    if ($status === 'current' && $currentQuestion === null) {
+        $currentQuestion = $question;
+        continue;
+    }
+    if ($status === 'past') {
+        $pastQuestions[] = $question;
+        continue;
+    }
+    $futureQuestions[] = $question;
+}
+
+$voteLabels = ['yes' => 'Да', 'no' => 'Не', 'abstain' => 'Въздържал се'];
+
+function summarizeVotes(array $votes, string $username): array
+{
+    $counts = ['yes' => 0, 'no' => 0, 'abstain' => 0];
+    $userVote = null;
+    foreach ($votes as $user => $voteValue) {
+        if (isset($counts[$voteValue])) {
+            $counts[$voteValue]++;
+        }
+        if ($user === $username) {
+            $userVote = $voteValue;
+        }
+    }
+    return [$counts, $userVote];
+}
+
 $recurringMap = ['Once' => 'Еднократно', 'Daily' => 'Ежедневно', 'Weekly' => 'Седмично', 'Monthly' => 'Месечно'];
 $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['recurring']]) ? $recurringMap[$meeting['recurring']] : ($meeting['recurring'] ?? '');
 ?>
@@ -301,12 +347,30 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
             padding: 16px;
             background: #fff;
         }
+        .question-card.current{
+            border-color: rgba(31,75,153,0.35);
+            box-shadow: 0 12px 24px rgba(31,75,153,0.12);
+        }
         .question-header{
             display: flex;
             flex-direction: column;
             gap: 6px;
             margin-bottom: 8px;
         }
+        .question-status{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .question-status.current{ background: #dbeafe; color: #1e40af; }
+        .question-status.future{ background: #fef3c7; color: #92400e; }
+        .question-status.past{ background: #e5e7eb; color: #4b5563; }
         .question-title{
             font-weight: 700;
             font-size: 16px;
@@ -351,6 +415,16 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
             flex-direction: column;
             gap: 8px;
         }
+        .agenda-group{
+            margin-top: 16px;
+        }
+        .agenda-title{
+            margin: 0 0 10px 0;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+        }
         .vote-counts{
             font-size: 13px;
             color: var(--muted);
@@ -369,6 +443,10 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
             font-weight: 600;
             font-size: 13px;
         }
+        .vote-btn.small{
+            padding: 4px 10px;
+            font-size: 12px;
+        }
         .vote-btn.yes{ border-color: rgba(22,101,52,0.4); color: #166534; }
         .vote-btn.no{ border-color: rgba(153,27,27,0.35); color: #991b1b; }
         .vote-btn.abstain{ border-color: rgba(107,114,128,0.5); color: #374151; }
@@ -380,6 +458,83 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
         .vote-disabled{
             color: var(--muted);
             font-size: 13px;
+        }
+        .vote-table{
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .vote-table th, .vote-table td{
+            border: 1px solid var(--border);
+            padding: 8px;
+            font-size: 13px;
+            text-align: left;
+        }
+        .vote-table th{
+            background: #f8fafc;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 11px;
+        }
+        .vote-actions{
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        .statement-input{
+            width: 100%;
+            min-height: 46px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-size: 12px;
+            margin-bottom: 6px;
+            resize: vertical;
+        }
+        .statement-list{
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px dashed var(--border);
+        }
+        .statement-title{
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        .statement-item{
+            font-size: 13px;
+            color: var(--text);
+            margin-bottom: 6px;
+            white-space: pre-wrap;
+        }
+        .statement-name{
+            font-weight: 700;
+            margin-right: 6px;
+        }
+        .question-actions{
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .action-btn{
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: #fff;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .action-btn.primary{
+            background: #111827;
+            color: #fff;
+            border-color: #111827;
+        }
+        .action-btn.ghost{
+            color: var(--accent);
         }
         .status-actions{
             display: flex;
@@ -484,7 +639,7 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
                                     <input type="hidden" name="extend_minutes" value="15">
                                     <button type="submit" class="status-action-btn extend">Удължи +15 мин</button>
                                 </form>
-                            <?php else: ?>
+                            <?php elseif (!$meetingStarted): ?>
                                 <form action="update_meeting_time.php" method="POST">
                                     <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
                                     <input type="hidden" name="action_type" value="start_early">
@@ -545,46 +700,32 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
                 <?php if (empty($questions)): ?>
                     <p class="empty-message">Няма добавени точки.</p>
                 <?php else: ?>
-                    <div class="questions-list">
-                        <?php foreach ($questions as $index => $question): ?>
+                    <div class="agenda-group">
+                        <div class="agenda-title">Сегашна точка</div>
+                        <?php if ($currentQuestion): ?>
                             <?php
+                            $question = $currentQuestion;
                             $votes = isset($question['votes']) && is_array($question['votes']) ? $question['votes'] : [];
-                            $counts = ['yes' => 0, 'no' => 0, 'abstain' => 0];
-                            $userVote = null;
-
-                            $isAssoc = array_keys($votes) !== range(0, count($votes) - 1);
-                            if ($isAssoc) {
-                                foreach ($votes as $voteValue) {
-                                    if (isset($counts[$voteValue])) {
-                                        $counts[$voteValue]++;
-                                    }
-                                }
-                                if (isset($votes[$_SESSION['user']])) {
-                                    $userVote = $votes[$_SESSION['user']];
-                                }
-                            } else {
-                                foreach ($votes as $voteEntry) {
-                                    if (is_array($voteEntry)) {
-                                        $voteValue = $voteEntry['vote'] ?? null;
-                                        if (isset($counts[$voteValue])) {
-                                            $counts[$voteValue]++;
-                                        }
-                                        if (($voteEntry['user'] ?? '') === $_SESSION['user']) {
-                                            $userVote = $voteValue;
-                                        }
-                                    }
-                                }
-                            }
-                            $voteLabels = ['yes' => 'Да', 'no' => 'Не', 'abstain' => 'Въздържал се'];
+                            $statements = isset($question['statements']) && is_array($question['statements']) ? $question['statements'] : [];
+                            list($counts, $userVote) = summarizeVotes($votes, $_SESSION['user']);
                             $userVoteLabel = $userVote !== null && isset($voteLabels[$userVote]) ? $voteLabels[$userVote] : null;
+                            $questionNumber = $questionNumbers[$question['id']] ?? '';
+                            $statementItems = [];
+                            foreach ($statements as $statementUser => $statementText) {
+                                if (trim((string)$statementText) === '') {
+                                    continue;
+                                }
+                                $statementItems[$statementUser] = $statementText;
+                            }
                             ?>
-                            <div class="question-card">
+                            <div class="question-card current">
                                 <div class="question-header">
-                                    <div class="question-title"><?php echo ($index + 1) . '. ' . htmlspecialchars($question['text'] ?? 'Untitled question'); ?></div>
+                                    <div class="question-title"><?php echo ($questionNumber !== '' ? $questionNumber . '. ' : '') . htmlspecialchars($question['text'] ?? 'Untitled question'); ?></div>
+                                    <span class="question-status current">Сегашна</span>
                                     <div class="question-meta">
                                         Добавено от <?php echo htmlspecialchars($question['created_by'] ?? 'Непознат'); ?>
                                         <?php if (!empty($question['created_at'])): ?>
-                                            · <?php echo htmlspecialchars($question['created_at']); ?>
+                                            &middot; <?php echo htmlspecialchars($question['created_at']); ?>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -623,22 +764,244 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
                                             · Вашият вот: <?php echo htmlspecialchars($userVoteLabel); ?>
                                         <?php endif; ?>
                                     </div>
+
                                     <?php if ($meetingActive): ?>
-                                        <form action="submit_vote.php" method="POST" class="vote-form">
-                                            <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
-                                            <input type="hidden" name="question_id" value="<?php echo htmlspecialchars($question['id'] ?? ''); ?>">
-                                            <div class="vote-buttons">
-                                                <button type="submit" name="vote" value="yes" class="vote-btn yes <?php echo $userVote === 'yes' ? 'active' : ''; ?>">Да</button>
-                                                <button type="submit" name="vote" value="no" class="vote-btn no <?php echo $userVote === 'no' ? 'active' : ''; ?>">Не</button>
-                                                <button type="submit" name="vote" value="abstain" class="vote-btn abstain <?php echo $userVote === 'abstain' ? 'active' : ''; ?>">Въздържал се</button>
-                                            </div>
-                                        </form>
+                                        <?php if ($canManageQuestions): ?>
+                                            <table class="vote-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Участник</th>
+                                                        <th>Записан вот</th>
+                                                        <th>Запиши</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <?php if (!empty($participants)): ?>
+                                                        <?php foreach ($participants as $participant): ?>
+                                                            <?php
+                                                            $participantName = $participant['username'] ?? '';
+                                                            if ($participantName === '') {
+                                                                continue;
+                                                            }
+                                                            $rawVoteValue = $votes[$participantName] ?? null;
+                                                            $voteValue = $rawVoteValue !== null && isset($voteLabels[$rawVoteValue]) ? $voteLabels[$rawVoteValue] : 'няма вот';
+                                                            $statementValue = $statements[$participantName] ?? '';
+                                                            ?>
+                                                            <tr>
+                                                                <td><?php echo htmlspecialchars($participantName); ?></td>
+                                                                <td><?php echo htmlspecialchars($voteValue); ?></td>
+                                                                <td>
+                                                                    <form action="submit_vote.php" method="POST">
+                                                                        <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
+                                                                        <input type="hidden" name="question_id" value="<?php echo htmlspecialchars($question['id'] ?? ''); ?>">
+                                                                        <input type="hidden" name="vote_for" value="<?php echo htmlspecialchars($participantName); ?>">
+                                                                        <textarea name="statement" class="statement-input" placeholder="Изказване (по избор)"><?php echo htmlspecialchars($statementValue); ?></textarea>
+                                                                        <div class="vote-actions">
+                                                                            <button type="submit" name="vote" value="yes" class="vote-btn yes small <?php echo $rawVoteValue === 'yes' ? 'active' : ''; ?>">Да</button>
+                                                                            <button type="submit" name="vote" value="no" class="vote-btn no small <?php echo $rawVoteValue === 'no' ? 'active' : ''; ?>">Не</button>
+                                                                            <button type="submit" name="vote" value="abstain" class="vote-btn abstain small <?php echo $rawVoteValue === 'abstain' ? 'active' : ''; ?>">Въздържал се</button>
+                                                                        </div>
+                                                                    </form>
+                                                                </td>
+                                                            </tr>
+                                                        <?php endforeach; ?>
+                                                    <?php else: ?>
+                                                        <tr>
+                                                            <td colspan="3" class="vote-disabled">Няма участници за този орган.</td>
+                                                        </tr>
+                                                    <?php endif; ?>
+                                                </tbody>
+                                            </table>
+                                        <?php else: ?>
+                                            <div class="vote-disabled">Гласовете се въвеждат от секретаря.</div>
+                                        <?php endif; ?>
                                     <?php else: ?>
                                         <div class="vote-disabled">Гласуването е възможно само по време на заседанието.</div>
                                     <?php endif; ?>
                                 </div>
+
+                                <?php if (!empty($statementItems)): ?>
+                                    <div class="statement-list">
+                                        <div class="statement-title">Изказвания</div>
+                                        <?php foreach ($statementItems as $statementUser => $statementText): ?>
+                                            <div class="statement-item">
+                                                <span class="statement-name"><?php echo htmlspecialchars($statementUser); ?>:</span>
+                                                <span><?php echo nl2br(htmlspecialchars($statementText)); ?></span>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+
+                                <?php if ($canManageQuestions): ?>
+                                    <div class="question-actions">
+                                        <form action="advance_question.php" method="POST">
+                                            <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
+                                            <button type="submit" class="action-btn primary">Приключи и премини към следваща</button>
+                                        </form>
+                                    </div>
+                                <?php endif; ?>
                             </div>
-                        <?php endforeach; ?>
+                        <?php else: ?>
+                            <p class="empty-message">Няма избрана сегашна точка.</p>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="agenda-group">
+                        <div class="agenda-title">Бъдещи точки</div>
+                        <?php if (empty($futureQuestions)): ?>
+                            <p class="empty-message">Няма бъдещи точки.</p>
+                        <?php else: ?>
+                            <div class="questions-list">
+                                <?php foreach ($futureQuestions as $question): ?>
+                                    <?php
+                                    $votes = isset($question['votes']) && is_array($question['votes']) ? $question['votes'] : [];
+                                    $statements = isset($question['statements']) && is_array($question['statements']) ? $question['statements'] : [];
+                                    list($counts, $userVote) = summarizeVotes($votes, $_SESSION['user']);
+                                    $userVoteLabel = $userVote !== null && isset($voteLabels[$userVote]) ? $voteLabels[$userVote] : null;
+                                    $questionNumber = $questionNumbers[$question['id']] ?? '';
+                                    $statementItems = [];
+                                    foreach ($statements as $statementUser => $statementText) {
+                                        if (trim((string)$statementText) === '') {
+                                            continue;
+                                        }
+                                        $statementItems[$statementUser] = $statementText;
+                                    }
+                                    ?>
+                                    <div class="question-card">
+                                        <div class="question-header">
+                                            <div class="question-title"><?php echo ($questionNumber !== '' ? $questionNumber . '. ' : '') . htmlspecialchars($question['text'] ?? 'Untitled question'); ?></div>
+                                            <span class="question-status future">Бъдеща</span>
+                                            <div class="question-meta">
+                                                Добавено от <?php echo htmlspecialchars($question['created_by'] ?? 'Непознат'); ?>
+                                                <?php if (!empty($question['created_at'])): ?>
+                                                    &middot; <?php echo htmlspecialchars($question['created_at']); ?>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                        <?php if (!empty($question['details'])): ?>
+                                            <p class="question-desc"><?php echo htmlspecialchars($question['details']); ?></p>
+                                        <?php endif; ?>
+
+                                        <?php if (!empty($question['attachments']) && is_array($question['attachments'])): ?>
+                                            <div class="attachments">
+                                                <div class="attachment-grid">
+                                                    <?php foreach ($question['attachments'] as $attachment): ?>
+                                                        <?php
+                                                        $attachmentPath = $attachment['path'] ?? '';
+                                                        $attachmentUrl = $attachmentPath ? $attachmentPath : '#';
+                                                        $attachmentName = $attachment['original_name'] ?? basename($attachmentPath);
+                                                        $attachmentType = $attachment['type'] ?? '';
+                                                        $isImage = strpos($attachmentType, 'image/') === 0;
+                                                        ?>
+                                                        <div class="attachment-item">
+                                                            <?php if ($isImage && $attachmentPath): ?>
+                                                                <img src="<?php echo htmlspecialchars($attachmentUrl); ?>" alt="<?php echo htmlspecialchars($attachmentName); ?>">
+                                                            <?php endif; ?>
+                                                            <a href="<?php echo htmlspecialchars($attachmentUrl); ?>" target="_blank" rel="noopener noreferrer">
+                                                                <?php echo htmlspecialchars($attachmentName); ?>
+                                                            </a>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <div class="vote-area">
+                                            <div class="vote-disabled">Точката предстои.</div>
+                                        </div>
+
+                                        <?php if ($canManageQuestions): ?>
+                                            <div class="question-actions">
+                                                <form action="set_current_question.php" method="POST">
+                                                    <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
+                                                    <input type="hidden" name="question_id" value="<?php echo htmlspecialchars($question['id'] ?? ''); ?>">
+                                                    <button type="submit" class="action-btn ghost">Избери за сегашна</button>
+                                                </form>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="agenda-group">
+                        <div class="agenda-title">Минали точки</div>
+                        <?php if (empty($pastQuestions)): ?>
+                            <p class="empty-message">Няма приключени точки.</p>
+                        <?php else: ?>
+                            <div class="questions-list">
+                                <?php foreach ($pastQuestions as $question): ?>
+                                    <?php
+                                    $votes = isset($question['votes']) && is_array($question['votes']) ? $question['votes'] : [];
+                                    list($counts, $userVote) = summarizeVotes($votes, $_SESSION['user']);
+                                    $userVoteLabel = $userVote !== null && isset($voteLabels[$userVote]) ? $voteLabels[$userVote] : null;
+                                    $questionNumber = $questionNumbers[$question['id']] ?? '';
+                                    ?>
+                                    <div class="question-card">
+                                        <div class="question-header">
+                                            <div class="question-title"><?php echo ($questionNumber !== '' ? $questionNumber . '. ' : '') . htmlspecialchars($question['text'] ?? 'Untitled question'); ?></div>
+                                            <span class="question-status past">Минала</span>
+                                            <div class="question-meta">
+                                                Добавено от <?php echo htmlspecialchars($question['created_by'] ?? 'Непознат'); ?>
+                                                <?php if (!empty($question['created_at'])): ?>
+                                                    &middot; <?php echo htmlspecialchars($question['created_at']); ?>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                        <?php if (!empty($question['details'])): ?>
+                                            <p class="question-desc"><?php echo htmlspecialchars($question['details']); ?></p>
+                                        <?php endif; ?>
+
+                                        <?php if (!empty($question['attachments']) && is_array($question['attachments'])): ?>
+                                            <div class="attachments">
+                                                <div class="attachment-grid">
+                                                    <?php foreach ($question['attachments'] as $attachment): ?>
+                                                        <?php
+                                                        $attachmentPath = $attachment['path'] ?? '';
+                                                        $attachmentUrl = $attachmentPath ? $attachmentPath : '#';
+                                                        $attachmentName = $attachment['original_name'] ?? basename($attachmentPath);
+                                                        $attachmentType = $attachment['type'] ?? '';
+                                                        $isImage = strpos($attachmentType, 'image/') === 0;
+                                                        ?>
+                                                        <div class="attachment-item">
+                                                            <?php if ($isImage && $attachmentPath): ?>
+                                                                <img src="<?php echo htmlspecialchars($attachmentUrl); ?>" alt="<?php echo htmlspecialchars($attachmentName); ?>">
+                                                            <?php endif; ?>
+                                                            <a href="<?php echo htmlspecialchars($attachmentUrl); ?>" target="_blank" rel="noopener noreferrer">
+                                                                <?php echo htmlspecialchars($attachmentName); ?>
+                                                            </a>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <div class="vote-area">
+                                            <div class="vote-counts">
+                                                Да: <?php echo $counts['yes']; ?> · Не: <?php echo $counts['no']; ?> · Въздържал се: <?php echo $counts['abstain']; ?>
+                                                <?php if ($userVoteLabel): ?>
+                                                    · Вашият вот: <?php echo htmlspecialchars($userVoteLabel); ?>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="vote-disabled">Точката е приключена.</div>
+                                        </div>
+
+                                        <?php if (!empty($statementItems)): ?>
+                                            <div class="statement-list">
+                                                <div class="statement-title">Изказвания</div>
+                                                <?php foreach ($statementItems as $statementUser => $statementText): ?>
+                                                    <div class="statement-item">
+                                                        <span class="statement-name"><?php echo htmlspecialchars($statementUser); ?>:</span>
+                                                        <span><?php echo nl2br(htmlspecialchars($statementText)); ?></span>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
             </div>

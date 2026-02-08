@@ -71,6 +71,7 @@ function initializeSchema(PDO $pdo): void
             meeting_id VARCHAR(64) NOT NULL,
             text TEXT NOT NULL,
             details TEXT,
+            status VARCHAR(20) NOT NULL DEFAULT \'future\',
             created_by VARCHAR(255) NOT NULL,
             created_at DATETIME NOT NULL,
             KEY idx_questions_meeting (meeting_id)
@@ -90,12 +91,15 @@ function initializeSchema(PDO $pdo): void
             question_id VARCHAR(64) NOT NULL,
             username VARCHAR(255) NOT NULL,
             vote VARCHAR(10) NOT NULL,
+            statement TEXT,
             created_at DATETIME NOT NULL,
             UNIQUE KEY uniq_votes_question_user (question_id, username),
             KEY idx_votes_question (question_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;'
     );
 
+    ensureQuestionStatusColumn($pdo);
+    ensureVotesStatementColumn($pdo);
     seedAdminUser($pdo);
 }
 
@@ -123,6 +127,40 @@ function seedAdminUser(PDO $pdo): void
         ':role' => $role,
         ':created_at' => date('Y-m-d H:i:s')
     ]);
+}
+
+function ensureQuestionStatusColumn(PDO $pdo): void
+{
+    $check = $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = "questions"
+           AND COLUMN_NAME = "status"'
+    );
+    $check->execute();
+    if ((int)$check->fetchColumn() > 0) {
+        return;
+    }
+
+    $pdo->exec("ALTER TABLE questions ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'future' AFTER details");
+}
+
+function ensureVotesStatementColumn(PDO $pdo): void
+{
+    $check = $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = "votes"
+           AND COLUMN_NAME = "statement"'
+    );
+    $check->execute();
+    if ((int)$check->fetchColumn() > 0) {
+        return;
+    }
+
+    $pdo->exec('ALTER TABLE votes ADD COLUMN statement TEXT NULL AFTER vote');
 }
 
 function normalizeRoles($roles): array
