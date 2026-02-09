@@ -72,6 +72,7 @@ function initializeSchema(PDO $pdo): void
             text TEXT NOT NULL,
             details TEXT,
             status VARCHAR(20) NOT NULL DEFAULT \'future\',
+            sort_order INT NOT NULL DEFAULT 0,
             created_by VARCHAR(255) NOT NULL,
             created_at DATETIME NOT NULL,
             KEY idx_questions_meeting (meeting_id)
@@ -99,6 +100,8 @@ function initializeSchema(PDO $pdo): void
     );
 
     ensureQuestionStatusColumn($pdo);
+    ensureQuestionSortOrderColumn($pdo);
+    backfillQuestionSortOrder($pdo);
     ensureVotesStatementColumn($pdo);
     seedAdminUser($pdo);
 }
@@ -161,6 +164,68 @@ function ensureVotesStatementColumn(PDO $pdo): void
     }
 
     $pdo->exec('ALTER TABLE votes ADD COLUMN statement TEXT NULL AFTER vote');
+}
+
+function ensureQuestionSortOrderColumn(PDO $pdo): void
+{
+    $check = $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = "questions"
+           AND COLUMN_NAME = "sort_order"'
+    );
+    $check->execute();
+    if ((int)$check->fetchColumn() > 0) {
+        return;
+    }
+
+    $pdo->exec('ALTER TABLE questions ADD COLUMN sort_order INT NOT NULL DEFAULT 0 AFTER status');
+}
+
+function backfillQuestionSortOrder(PDO $pdo): void
+{
+    $meetingsStmt = $pdo->query('SELECT id FROM meetings');
+    $meetingIds = $meetingsStmt ? $meetingsStmt->fetchAll(PDO::FETCH_COLUMN) : [];
+    if (empty($meetingIds)) {
+        return;
+    }
+
+    $selectQuestions = $pdo->prepare(
+        'SELECT id, sort_order
+         FROM questions
+         WHERE meeting_id = :meeting_id
+         ORDER BY CASE WHEN sort_order = 0 THEN 1 ELSE 0 END, sort_order ASC, created_at ASC, id ASC'
+    );
+    $updateOrder = $pdo->prepare('UPDATE questions SET sort_order = :sort_order WHERE id = :id');
+
+    foreach ($meetingIds as $meetingId) {
+        $selectQuestions->execute([':meeting_id' => $meetingId]);
+        $questions = $selectQuestions->fetchAll();
+        if (empty($questions)) {
+            continue;
+        }
+
+        $needsBackfill = false;
+        foreach ($questions as $question) {
+            if ((int)$question['sort_order'] === 0) {
+                $needsBackfill = true;
+                break;
+            }
+        }
+        if (!$needsBackfill) {
+            continue;
+        }
+
+        $order = 1;
+        foreach ($questions as $question) {
+            $updateOrder->execute([
+                ':sort_order' => $order,
+                ':id' => $question['id']
+            ]);
+            $order++;
+        }
+    }
 }
 
 function normalizeRoles($roles): array

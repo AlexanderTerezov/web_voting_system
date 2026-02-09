@@ -70,7 +70,7 @@ $meetingActive = $now >= $meetingStart && $now <= $meetingEnd;
 $meetingStarted = $now >= $meetingStart;
 $meetingEnded = $now > $meetingEnd;
 
-$questionsStmt = $pdo->prepare('SELECT * FROM questions WHERE meeting_id = :meeting_id ORDER BY created_at ASC');
+$questionsStmt = $pdo->prepare('SELECT * FROM questions WHERE meeting_id = :meeting_id ORDER BY sort_order ASC, created_at ASC');
 $questionsStmt->execute([':meeting_id' => $meeting_id]);
 $questions = $questionsStmt->fetchAll();
 
@@ -346,6 +346,12 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
             border-radius: 12px;
             padding: 16px;
             background: #fff;
+        }
+        .question-card.draggable{
+            cursor: grab;
+        }
+        .question-card.dragging{
+            opacity: 0.6;
         }
         .question-card.current{
             border-color: rgba(31,75,153,0.35);
@@ -851,7 +857,7 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
                         <?php if (empty($futureQuestions)): ?>
                             <p class="empty-message">Няма бъдещи точки.</p>
                         <?php else: ?>
-                            <div class="questions-list">
+                            <div class="questions-list" id="future-questions">
                                 <?php foreach ($futureQuestions as $question): ?>
                                     <?php
                                     $votes = isset($question['votes']) && is_array($question['votes']) ? $question['votes'] : [];
@@ -859,6 +865,12 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
                                     list($counts, $userVote) = summarizeVotes($votes, $_SESSION['user']);
                                     $userVoteLabel = $userVote !== null && isset($voteLabels[$userVote]) ? $voteLabels[$userVote] : null;
                                     $questionNumber = $questionNumbers[$question['id']] ?? '';
+                                    $cardClasses = 'question-card';
+                                    $cardAttrs = '';
+                                    if ($canManageQuestions) {
+                                        $cardClasses .= ' draggable';
+                                        $cardAttrs = 'draggable="true"';
+                                    }
                                     $statementItems = [];
                                     foreach ($statements as $statementUser => $statementText) {
                                         if (trim((string)$statementText) === '') {
@@ -867,7 +879,7 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
                                         $statementItems[$statementUser] = $statementText;
                                     }
                                     ?>
-                                    <div class="question-card">
+                                    <div class="<?php echo $cardClasses; ?>" <?php echo $cardAttrs; ?> data-question-id="<?php echo htmlspecialchars($question['id'] ?? ''); ?>">
                                         <div class="question-header">
                                             <div class="question-title"><?php echo ($questionNumber !== '' ? $questionNumber . '. ' : '') . htmlspecialchars($question['text'] ?? 'Untitled question'); ?></div>
                                             <span class="question-status future">Бъдеща</span>
@@ -1007,5 +1019,104 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
             </div>
         </div>
     </div>
+    <script>
+        (function() {
+            const canManage = <?php echo $canManageQuestions ? 'true' : 'false'; ?>;
+            if (!canManage) {
+                return;
+            }
+
+            const list = document.getElementById('future-questions');
+            if (!list) {
+                return;
+            }
+
+            const meetingId = "<?php echo htmlspecialchars($meeting['id']); ?>";
+            let dragging = null;
+
+            list.addEventListener('dragstart', function(event) {
+                const card = event.target.closest('.question-card.draggable');
+                if (!card) {
+                    return;
+                }
+                dragging = card;
+                card.classList.add('dragging');
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = 'move';
+                }
+            });
+
+            list.addEventListener('dragend', function() {
+                if (dragging) {
+                    dragging.classList.remove('dragging');
+                }
+                dragging = null;
+            });
+
+            list.addEventListener('dragover', function(event) {
+                if (!dragging) {
+                    return;
+                }
+                event.preventDefault();
+                const afterElement = getDragAfterElement(list, event.clientY);
+                if (afterElement == null) {
+                    list.appendChild(dragging);
+                } else if (afterElement !== dragging) {
+                    list.insertBefore(dragging, afterElement);
+                }
+            });
+
+            list.addEventListener('drop', function(event) {
+                if (!dragging) {
+                    return;
+                }
+                event.preventDefault();
+                saveOrder();
+            });
+
+            function getDragAfterElement(container, y) {
+                const draggableElements = Array.from(
+                    container.querySelectorAll('.question-card.draggable:not(.dragging)')
+                );
+
+                return draggableElements.reduce(function(closest, child) {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    }
+                    return closest;
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+
+            function saveOrder() {
+                const ids = Array.from(list.querySelectorAll('.question-card[data-question-id]'))
+                    .map(function(el) { return el.dataset.questionId; })
+                    .filter(function(id) { return id; });
+
+                fetch('update_question_order.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        meeting_id: meetingId,
+                        order: ids
+                    })
+                })
+                    .then(function(response) {
+                        return response.json();
+                    })
+                    .then(function(result) {
+                        if (result && result.success) {
+                            window.location.reload();
+                            return;
+                        }
+                        alert('Неуспешно запазване на реда.');
+                    })
+                    .catch(function() {
+                        alert('Неуспешно запазване на реда.');
+                    });
+            }
+        })();
+    </script>
 </body>
 </html>

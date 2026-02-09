@@ -21,7 +21,7 @@ Add:
 - Meetings with PlantUML 
 - Automatic agenda for next meeting 
 - Secretary does everything ✅
-- Moving agenda items 
+- Moving agenda items ✅
 - Secretary can select current agenda item ✅
 - Allow creating different roles; ✅
 - Quorum calculated in a different way  

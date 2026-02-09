@@ -130,13 +130,18 @@ $question = [
     'attachments' => $attachments,
     'votes' => [],
     'status' => 'future',
+    'sort_order' => 1,
     'created_by' => $_SESSION['user'],
     'created_at' => date('Y-m-d H:i:s')
 ];
 
+$orderStmt = $pdo->prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 FROM questions WHERE meeting_id = :meeting_id');
+$orderStmt->execute([':meeting_id' => $meeting_id]);
+$question['sort_order'] = (int)$orderStmt->fetchColumn();
+
 $insertQuestion = $pdo->prepare(
-    'INSERT INTO questions (id, meeting_id, text, details, status, created_by, created_at)
-     VALUES (:id, :meeting_id, :text, :details, :status, :created_by, :created_at)'
+    'INSERT INTO questions (id, meeting_id, text, details, status, sort_order, created_by, created_at)
+     VALUES (:id, :meeting_id, :text, :details, :status, :sort_order, :created_by, :created_at)'
 );
 $insertQuestion->execute([
     ':id' => $question['id'],
@@ -144,6 +149,7 @@ $insertQuestion->execute([
     ':text' => $question['text'],
     ':details' => $question['details'],
     ':status' => $question['status'],
+    ':sort_order' => $question['sort_order'],
     ':created_by' => $question['created_by'],
     ':created_at' => $question['created_at']
 ]);

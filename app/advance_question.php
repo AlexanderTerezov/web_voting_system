@@ -79,7 +79,7 @@ try {
     ]);
 
     $nextStmt = $pdo->prepare(
-        'SELECT id FROM questions WHERE meeting_id = :meeting_id AND status = :status ORDER BY created_at ASC, id ASC LIMIT 1'
+        'SELECT id FROM questions WHERE meeting_id = :meeting_id AND status = :status ORDER BY sort_order ASC, created_at ASC, id ASC LIMIT 1'
     );
     $nextStmt->execute([
         ':meeting_id' => $meeting_id,

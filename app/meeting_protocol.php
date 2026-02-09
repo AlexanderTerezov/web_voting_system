@@ -73,7 +73,7 @@ foreach ($participants as $participant) {
     }
 }
 
-$questionsStmt = $pdo->prepare('SELECT * FROM questions WHERE meeting_id = :meeting_id ORDER BY created_at ASC');
+$questionsStmt = $pdo->prepare('SELECT * FROM questions WHERE meeting_id = :meeting_id ORDER BY sort_order ASC, created_at ASC');
 $questionsStmt->execute([':meeting_id' => $meeting_id]);
 $questions = $questionsStmt->fetchAll();
 
