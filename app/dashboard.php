@@ -622,7 +622,20 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                         <label for="agency_name">Име на орган</label>
                         <input type="text" id="agency_name" name="agency_name" required>
                     </div>
-                    
+                    <div class="form-group">
+                        <label for="default_questions">Автоматични точки за всяко заседание</label>
+                        <textarea id="default_questions" 
+                        id="default_questions" 
+                        name="default_questions" 
+                        rows="5" 
+                        style="width: 100%; box-sizing: border-box; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"
+                        placeholder="
+* Откриване на заседанието
+* Проверка на кворума
+* Разни"></textarea>
+                        
+                    </div>
+                    <small style="color: var(--muted);">Тези точки ще се добавят автоматично към всяко ново заседание на този орган.</small>
                     <div class="form-group">
                         <label for="quorum">Кворум</label>
                         <input type="number" id="quorum" name="quorum" min="1" step="1" inputmode="numeric" pattern="[0-9]*" required>

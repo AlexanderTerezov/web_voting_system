@@ -100,13 +100,16 @@ if (empty($finalParticipants)) {
 }
 
 $pdo->beginTransaction();
-$insertAgency = $pdo->prepare('INSERT INTO agencies (name, quorum, created_at, created_by) VALUES (:name, :quorum, :created_at, :created_by)');
+$insertAgency = $pdo->prepare('INSERT INTO agencies (name, quorum, default_questions, created_at, created_by) VALUES (:name, :quorum, :default_questions, :created_at, :created_by)');
 $insertAgency->execute([
     ':name' => $agency_name,
     ':quorum' => $quorum,
+    ':default_questions' => $default_questions,
     ':created_at' => date('Y-m-d H:i:s'),
     ':created_by' => $_SESSION['user']
 ]);
+
+$default_questions = trim($_POST['default_questions'] ?? '');
 $agencyId = (int)$pdo->lastInsertId();
 
 $insertParticipant = $pdo->prepare('INSERT INTO agency_participants (agency_id, username, role) VALUES (:agency_id, :username, :role)');

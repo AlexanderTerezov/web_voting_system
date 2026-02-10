@@ -36,6 +36,7 @@ function initializeSchema(PDO $pdo): void
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
             quorum INT NOT NULL,
+            default_questions TEXT DEFAULT NULL,
             created_at DATETIME NOT NULL,
             created_by VARCHAR(255) NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -101,11 +102,27 @@ function initializeSchema(PDO $pdo): void
 
     ensureQuestionStatusColumn($pdo);
     ensureQuestionSortOrderColumn($pdo);
+    ensureAgencyDefaultQuestionsColumn($pdo);
     backfillQuestionSortOrder($pdo);
     ensureVotesStatementColumn($pdo);
     seedAdminUser($pdo);
 }
+function ensureAgencyDefaultQuestionsColumn(PDO $pdo): void
+{
+    $check = $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = "agencies"
+           AND COLUMN_NAME = "default_questions"'
+    );
+    $check->execute();
+    if ((int)$check->fetchColumn() > 0) {
+        return;
+    }
 
+    $pdo->exec('ALTER TABLE agencies ADD COLUMN default_questions TEXT DEFAULT NULL AFTER quorum');
+}
 function seedAdminUser(PDO $pdo): void
 {
     $username = getenv('SEED_ADMIN_USERNAME') ?: 'Admin';
