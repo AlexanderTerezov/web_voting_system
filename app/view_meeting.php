@@ -679,9 +679,33 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
                 <?php endif; ?>
             </div>
 
-            <?php if ($canManageQuestions): ?>
+            <?php if ($canManageQuestions && !$meetingEnded): ?>
+                                    <?php if ($canManageQuestions): ?>
+                        <div class="section" background: #f0f9ff;>
+                            <h2>Добавяне на точки от дневен ред</h2>
+                            <form action="bulk_add_questions.php" method="POST" enctype="multipart/form-data">
+                                <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
+                                
+                                <div class="form-group">
+                                    <textarea name="bulk_content" rows="10" placeholder="* Бюджет 2024
+** Приходи
+# report_january.pdf
+* Маркетинг
+- План за Facebook
+# marketing_plan.docx" style="font-family: monospace;"></textarea>
+                                </div>
+                                
+                                    <label for="attachments">Прикачени файлове (изображения, PDF, Office документи)</label>
+                                <div class="form-group" style="background: white; padding: 10px; border: 1px solid var(--border); border-radius: 8px;">
+                                    <input type="file" id="bulk_files" name="bulk_attachments[]" multiple style="border: none; padding: 0;">
+                                </div>
+                                
+                                <button type="submit" class="submit-btn" style="background: var(--accent);">Добави всички точки</button>
+                            </form>
+                        </div>
+                    <?php endif; ?>
                 <div class="section">
-                    <h2>Добави точка от дневния ред</h2>
+                    <h2>Добавяне точка от дневен ред</h2>
                     <form action="add_question.php" method="POST" enctype="multipart/form-data">
                         <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
                         <div class="form-group">
@@ -698,6 +722,7 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
                         </div>
                         <button type="submit" class="submit-btn">Добави точка</button>
                     </form>
+                    
                 </div>
             <?php endif; ?>
 
