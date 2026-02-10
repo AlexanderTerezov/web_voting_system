@@ -673,18 +673,17 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                     </div>
                     
                     <div class="form-group">
-                        <label>Участници</label>
-                        <div id="participantsContainer">
-                            <div class="participant-item" data-index="0">
-                                <input type="email" class="participant-email" name="participants[0][email]" required placeholder="email@example.com">
-                                <div class="participant-roles">
-                                    <label><input type="checkbox" class="participant-role" name="participants[0][roles][]" value="member" checked>Член</label>
-                                    <label><input type="checkbox" class="participant-role" name="participants[0][roles][]" value="secretary">Секретар</label>
-                                </div>
-                                <button type="button" class="remove-participant-btn" onclick="removeParticipant(this)">Премахни</button>
-                            </div>
-                        </div>
-                        <button type="button" class="add-participant-btn" onclick="addParticipant()">+ Добави участник</button>
+                        <label for="participants_bulk">Участници</label>
+                        <textarea
+                            id="participants_bulk"
+                            name="participants_bulk"
+                            rows="6"
+                            required
+                            style="width: 100%; box-sizing: border-box; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb;"
+                            placeholder="example1@email.com, U, S&#10;example2@email.com, _, S&#10;example3@email.com, _, _"></textarea>
+                        <small style="color: var(--muted); display: block; margin-top: 6px;">
+                            Формат: един потребител на ред. U = Член, S = Секретар. Използвайте "_" за няма роля.
+                        </small>
                     </div>
                     
                     <button type="submit" class="submit-btn">Създай орган</button>
@@ -780,55 +779,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
     </div>
 
     <script>
-        // Agency form functions
-        function assignParticipantIndex(item, index) {
-            item.dataset.index = index;
-            const emailInput = item.querySelector('.participant-email');
-            if (emailInput) {
-                emailInput.name = `participants[${index}][email]`;
-            }
-            const roleInputs = item.querySelectorAll('.participant-role');
-            roleInputs.forEach((input) => {
-                input.name = `participants[${index}][roles][]`;
-            });
-        }
-
-        function resetParticipantItem(item) {
-            const emailInput = item.querySelector('.participant-email');
-            if (emailInput) {
-                emailInput.value = '';
-            }
-            const roleInputs = item.querySelectorAll('.participant-role');
-            roleInputs.forEach((input) => {
-                input.checked = input.value === 'member';
-            });
-        }
-
-        function reindexParticipants() {
-            const container = document.getElementById('participantsContainer');
-            Array.from(container.children).forEach((item, index) => {
-                assignParticipantIndex(item, index);
-            });
-        }
-
-        function addParticipant() {
-            const container = document.getElementById('participantsContainer');
-            const newItem = container.firstElementChild.cloneNode(true);
-            resetParticipantItem(newItem);
-            container.appendChild(newItem);
-            reindexParticipants();
-        }
-
-        function removeParticipant(btn) {
-            const container = document.getElementById('participantsContainer');
-            if (container.children.length > 1) {
-                btn.parentElement.remove();
-                reindexParticipants();
-            } else {
-                alert('\u041d\u0443\u0436\u0435\u043d \u0435 \u043f\u043e\u043d\u0435 \u0435\u0434\u0438\u043d \u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a');
-            }
-        }
-
+        // Quorum form functions
         function toggleQuorumInputs() {
             const typeSelect = document.getElementById('quorum_type');
             if (!typeSelect) {

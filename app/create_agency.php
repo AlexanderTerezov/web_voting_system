@@ -15,15 +15,10 @@ $agency_name = trim($_POST['agency_name'] ?? '');
 $quorumType = $_POST['quorum_type'] ?? 'count';
 $quorumCount = isset($_POST['quorum_count']) ? intval($_POST['quorum_count']) : 0;
 $quorumPercent = isset($_POST['quorum_percent']) ? intval($_POST['quorum_percent']) : 0;
-$participantsInput = $_POST['participants'] ?? [];
+$participantsBulk = trim($_POST['participants_bulk'] ?? '');
 
-if (empty($agency_name) || empty($participantsInput)) {
+if (empty($agency_name) || $participantsBulk === '') {
     header('Location: dashboard.php?error=Всички полета са задължителни');
-    exit();
-}
-
-if (!is_array($participantsInput)) {
-    header('Location: dashboard.php?error=Невалидни данни за участници');
     exit();
 }
 
@@ -47,19 +42,30 @@ require_once __DIR__ . '/db.php';
 
 $participantsList = [];
 $invalidEmails = [];
-foreach ($participantsInput as $entry) {
-    if (!is_array($entry)) {
+$lines = preg_split('/\R/', $participantsBulk);
+foreach ($lines as $line) {
+    $line = trim($line);
+    if ($line === '') {
         continue;
     }
-    $email = trim($entry['email'] ?? '');
-    if ($email === '') {
+    $parts = array_map('trim', explode(',', $line));
+    $email = $parts[0] ?? '';
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $invalidEmails[] = $email !== '' ? $email : $line;
         continue;
     }
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $invalidEmails[] = $email;
-        continue;
+    $roles = [];
+    for ($i = 1; $i < count($parts); $i++) {
+        $token = strtolower(trim($parts[$i]));
+        if ($token === 'u') {
+            $roles['member'] = true;
+        } elseif ($token === 's') {
+            $roles['secretary'] = true;
+        }
     }
-    $roles = normalizeRoles($entry['roles'] ?? []);
+    if (empty($roles)) {
+        $roles['member'] = true;
+    }
     $emailKey = strtolower($email);
     if (!isset($participantsList[$emailKey])) {
         $participantsList[$emailKey] = [
@@ -67,7 +73,7 @@ foreach ($participantsInput as $entry) {
             'roles' => []
         ];
     }
-    foreach ($roles as $role) {
+    foreach (array_keys($roles) as $role) {
         $participantsList[$emailKey]['roles'][$role] = true;
     }
 }
