@@ -36,6 +36,8 @@ function initializeSchema(PDO $pdo): void
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
             quorum INT NOT NULL,
+            quorum_type VARCHAR(10) NOT NULL DEFAULT \'count\',
+            quorum_percent INT DEFAULT NULL,
             default_questions TEXT DEFAULT NULL,
             created_at DATETIME NOT NULL,
             created_by VARCHAR(255) NOT NULL
@@ -66,6 +68,15 @@ function initializeSchema(PDO $pdo): void
             ended_at DATETIME NULL,
             KEY idx_meetings_agency (agency_id),
             KEY idx_meetings_series (series_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        CREATE TABLE IF NOT EXISTS meeting_attendance (
+            meeting_id VARCHAR(64) NOT NULL,
+            username VARCHAR(255) NOT NULL,
+            present TINYINT(1) NOT NULL DEFAULT 1,
+            recorded_by VARCHAR(255) NOT NULL,
+            recorded_at DATETIME NOT NULL,
+            PRIMARY KEY (meeting_id, username),
+            KEY idx_meeting_attendance_meeting (meeting_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
         CREATE TABLE IF NOT EXISTS questions (
             id VARCHAR(64) PRIMARY KEY,
@@ -102,11 +113,48 @@ function initializeSchema(PDO $pdo): void
 
     ensureQuestionStatusColumn($pdo);
     ensureQuestionSortOrderColumn($pdo);
+    ensureAgencyQuorumTypeColumn($pdo);
+    ensureAgencyQuorumPercentColumn($pdo);
     ensureAgencyDefaultQuestionsColumn($pdo);
+    backfillAgencyQuorumType($pdo);
     backfillQuestionSortOrder($pdo);
     ensureVotesStatementColumn($pdo);
     seedAdminUser($pdo);
 }
+function ensureAgencyQuorumTypeColumn(PDO $pdo): void
+{
+    $check = $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = "agencies"
+           AND COLUMN_NAME = "quorum_type"'
+    );
+    $check->execute();
+    if ((int)$check->fetchColumn() > 0) {
+        return;
+    }
+
+    $pdo->exec("ALTER TABLE agencies ADD COLUMN quorum_type VARCHAR(10) NOT NULL DEFAULT 'count' AFTER quorum");
+}
+
+function ensureAgencyQuorumPercentColumn(PDO $pdo): void
+{
+    $check = $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = "agencies"
+           AND COLUMN_NAME = "quorum_percent"'
+    );
+    $check->execute();
+    if ((int)$check->fetchColumn() > 0) {
+        return;
+    }
+
+    $pdo->exec('ALTER TABLE agencies ADD COLUMN quorum_percent INT DEFAULT NULL AFTER quorum_type');
+}
+
 function ensureAgencyDefaultQuestionsColumn(PDO $pdo): void
 {
     $check = $pdo->prepare(
@@ -121,7 +169,11 @@ function ensureAgencyDefaultQuestionsColumn(PDO $pdo): void
         return;
     }
 
-    $pdo->exec('ALTER TABLE agencies ADD COLUMN default_questions TEXT DEFAULT NULL AFTER quorum');
+    $pdo->exec('ALTER TABLE agencies ADD COLUMN default_questions TEXT DEFAULT NULL AFTER quorum_percent');
+}
+function backfillAgencyQuorumType(PDO $pdo): void
+{
+    $pdo->exec("UPDATE agencies SET quorum_type = 'count' WHERE quorum_type IS NULL OR quorum_type = ''");
 }
 function seedAdminUser(PDO $pdo): void
 {

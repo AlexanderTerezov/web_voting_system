@@ -52,6 +52,20 @@ function formatRolesLabel($roles): string
     return implode(', ', $labels);
 }
 
+function formatQuorumLabel(array $agency): string
+{
+    $quorumType = $agency['quorum_type'] ?? 'count';
+    $quorumType = $quorumType === 'percent' ? 'percent' : 'count';
+    if ($quorumType === 'percent') {
+        $percent = isset($agency['quorum_percent']) ? (int)$agency['quorum_percent'] : 0;
+        $total = isset($agency['participants']) && is_array($agency['participants']) ? count($agency['participants']) : 0;
+        $required = $percent > 0 ? (int)ceil(($total * $percent) / 100) : 0;
+        return $percent > 0 ? sprintf('%d%% (%d/%d)', $percent, $required, $total) : '0%';
+    }
+
+    return isset($agency['quorum']) ? (string)$agency['quorum'] : '0';
+}
+
 // Load meetings with agency name
 $meetings = $pdo->query(
     'SELECT m.*, a.name AS agency_name
@@ -86,15 +100,12 @@ $now = new DateTime();
 $recurringMap = ['Once' => 'Еднократно', 'Daily' => 'Ежедневно', 'Weekly' => 'Седмично', 'Monthly' => 'Месечно'];
 
 foreach ($meetings as $meeting) {
-    // Calculate meeting end time based on duration
-    $meetingStart = new DateTime($meeting['date'] . ' ' . $meeting['time']);
-    if (!empty($meeting['started_at'])) {
-        $overrideStart = new DateTime($meeting['started_at']);
-        if ($overrideStart < $meetingStart) {
-            $meetingStart = $overrideStart;
-        }
-    }
     $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60; // Default 60 minutes
+    $scheduledStart = new DateTime($meeting['date'] . ' ' . $meeting['time']);
+    $meetingStart = $scheduledStart;
+    if (!empty($meeting['started_at'])) {
+        $meetingStart = new DateTime($meeting['started_at']);
+    }
     $meetingEnd = clone $meetingStart;
     $meetingEnd->modify("+{$duration} minutes");
     if (!empty($meeting['ended_at'])) {
@@ -103,13 +114,23 @@ foreach ($meetings as $meeting) {
             $meetingEnd = $overrideEnd;
         }
     }
-    
+    $scheduledEnd = clone $scheduledStart;
+    $scheduledEnd->modify("+{$duration} minutes");
+    if (!empty($meeting['ended_at'])) {
+        $overrideEnd = new DateTime($meeting['ended_at']);
+        if ($overrideEnd < $scheduledEnd) {
+            $scheduledEnd = $overrideEnd;
+        }
+    }
+    $meetingStarted = !empty($meeting['started_at']);
+    $classificationEnd = $meetingStarted ? $meetingEnd : $scheduledEnd;
+
     // Check if user is part of this agency
     $agencyId = (int)$meeting['agency_id'];
     $isParticipant = $role === 'Admin' || isset($rolesByAgencyUser[$agencyId][$username]);
     
     if ($isParticipant) {
-        if ($meetingEnd >= $now) {
+        if ($classificationEnd >= $now) {
             $upcomingMeetings[] = $meeting;
         } else {
             $pastMeetings[] = $meeting;
@@ -487,12 +508,10 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                 
                 // Calculate end time
                 $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
-                $meetingStart = new DateTime($meeting['date'] . ' ' . $meeting['time']);
+                $scheduledStart = new DateTime($meeting['date'] . ' ' . $meeting['time']);
+                $meetingStart = $scheduledStart;
                 if (!empty($meeting['started_at'])) {
-                    $overrideStart = new DateTime($meeting['started_at']);
-                    if ($overrideStart < $meetingStart) {
-                        $meetingStart = $overrideStart;
-                    }
+                    $meetingStart = new DateTime($meeting['started_at']);
                 }
                 $endTime = clone $meetingStart;
                 $endTime->modify("+{$duration} minutes");
@@ -502,7 +521,8 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                         $endTime = $overrideEnd;
                     }
                 }
-                $isActive = $now >= $meetingStart && $now <= $endTime;
+                $meetingStarted = !empty($meeting['started_at']);
+                $isActive = $meetingStarted && $now >= $meetingStart && $now <= $endTime;
                 $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['recurring']]) ? $recurringMap[$meeting['recurring']] : ($meeting['recurring'] ?? '');
                 ?>
                 <div class="meeting-card">
@@ -559,12 +579,10 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                 
                 // Calculate end time
                 $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
-                $meetingStart = new DateTime($meeting['date'] . ' ' . $meeting['time']);
+                $scheduledStart = new DateTime($meeting['date'] . ' ' . $meeting['time']);
+                $meetingStart = $scheduledStart;
                 if (!empty($meeting['started_at'])) {
-                    $overrideStart = new DateTime($meeting['started_at']);
-                    if ($overrideStart < $meetingStart) {
-                        $meetingStart = $overrideStart;
-                    }
+                    $meetingStart = new DateTime($meeting['started_at']);
                 }
                 $endTime = clone $meetingStart;
                 $endTime->modify("+{$duration} minutes");
@@ -574,6 +592,8 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                         $endTime = $overrideEnd;
                     }
                 }
+                $meetingStarted = !empty($meeting['started_at']);
+                $isActive = $meetingStarted && $now >= $meetingStart && $now <= $endTime;
                 $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['recurring']]) ? $recurringMap[$meeting['recurring']] : ($meeting['recurring'] ?? '');
                 ?>
                 <div class="meeting-card">
@@ -637,8 +657,19 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                     </div>
                     <small style="color: var(--muted);">Тези точки ще се добавят автоматично към всяко ново заседание на този орган.</small>
                     <div class="form-group">
-                        <label for="quorum">Кворум</label>
-                        <input type="number" id="quorum" name="quorum" min="1" step="1" inputmode="numeric" pattern="[0-9]*" required>
+                        <label for="quorum_type">Кворум</label>
+                        <select id="quorum_type" name="quorum_type">
+                            <option value="count">Брой присъстващи</option>
+                            <option value="percent">Процент от всички</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="quorum_count_group">
+                        <label for="quorum_count">Минимален брой</label>
+                        <input type="number" id="quorum_count" name="quorum_count" min="1" step="1" inputmode="numeric" pattern="[0-9]*" required>
+                    </div>
+                    <div class="form-group" id="quorum_percent_group" style="display: none;">
+                        <label for="quorum_percent">Процент от всички участници</label>
+                        <input type="number" id="quorum_percent" name="quorum_percent" min="1" max="100" step="1" inputmode="numeric" pattern="[0-9]*">
                     </div>
                     
                     <div class="form-group">
@@ -670,7 +701,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                         <?php $agencyId = (int)$agency['id']; ?>
                         <div class="agency-card">
                             <h3><?php echo htmlspecialchars($agency['name']); ?></h3>
-                            <p class="agency-info"><strong>Кворум:</strong> <?php echo htmlspecialchars($agency['quorum']); ?></p>
+                            <p class="agency-info"><strong>Кворум:</strong> <?php echo htmlspecialchars(formatQuorumLabel($agency)); ?></p>
                             <p class="agency-info"><strong>Общо участници:</strong> <?php echo count($agency['participants']); ?></p>
                             <p class="agency-info"><strong>Създаден:</strong> <?php echo htmlspecialchars($agency['created_at']); ?></p>
                             
@@ -723,7 +754,7 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                                     <?php echo htmlspecialchars(formatRolesLabel($userRoles)); ?>
                                 </span>
                             </p>
-                            <p class="agency-info"><strong>Кворум:</strong> <?php echo htmlspecialchars($agency['quorum']); ?></p>
+                            <p class="agency-info"><strong>Кворум:</strong> <?php echo htmlspecialchars(formatQuorumLabel($agency)); ?></p>
                             <p class="agency-info"><strong>Общо участници:</strong> <?php echo count($agency['participants']); ?></p>
                             
                             <div class="participant-list">
@@ -797,6 +828,38 @@ $recentPastMeetings = array_slice($pastMeetings, 0, 5);
                 alert('\u041d\u0443\u0436\u0435\u043d \u0435 \u043f\u043e\u043d\u0435 \u0435\u0434\u0438\u043d \u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a');
             }
         }
+
+        function toggleQuorumInputs() {
+            const typeSelect = document.getElementById('quorum_type');
+            if (!typeSelect) {
+                return;
+            }
+            const isPercent = typeSelect.value === 'percent';
+            const countGroup = document.getElementById('quorum_count_group');
+            const percentGroup = document.getElementById('quorum_percent_group');
+            const countInput = document.getElementById('quorum_count');
+            const percentInput = document.getElementById('quorum_percent');
+            if (countGroup) {
+                countGroup.style.display = isPercent ? 'none' : 'block';
+            }
+            if (percentGroup) {
+                percentGroup.style.display = isPercent ? 'block' : 'none';
+            }
+            if (countInput) {
+                countInput.required = !isPercent;
+                countInput.disabled = isPercent;
+            }
+            if (percentInput) {
+                percentInput.required = isPercent;
+                percentInput.disabled = !isPercent;
+            }
+        }
+
+        const quorumTypeSelect = document.getElementById('quorum_type');
+        if (quorumTypeSelect) {
+            quorumTypeSelect.addEventListener('change', toggleQuorumInputs);
+        }
+        toggleQuorumInputs();
     </script>
 </body>
 </html>

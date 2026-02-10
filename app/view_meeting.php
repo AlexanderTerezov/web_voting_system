@@ -17,7 +17,7 @@ $pdo = getDb();
 ensureRecurringMeetings($pdo);
 
 $meetingStmt = $pdo->prepare(
-    'SELECT m.*, a.name AS agency_name, a.quorum AS agency_quorum
+    'SELECT m.*, a.name AS agency_name, a.quorum AS agency_quorum, a.quorum_type AS agency_quorum_type, a.quorum_percent AS agency_quorum_percent
      FROM meetings m
      JOIN agencies a ON a.id = m.agency_id
      WHERE m.id = :id'
@@ -49,13 +49,39 @@ if (!$hasAccess) {
 // Determine if user can manage questions (secretary or admin)
 $canManageQuestions = $_SESSION['role'] === 'Admin' || hasRole($participantRoles[$_SESSION['user']] ?? '', 'secretary');
 
-$duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
-$meetingStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
-if (!empty($meeting['started_at'])) {
-    $overrideStart = new DateTime($meeting['started_at']);
-    if ($overrideStart < $meetingStart) {
-        $meetingStart = $overrideStart;
+$quorum = isset($meeting['agency_quorum']) ? (int)$meeting['agency_quorum'] : 0;
+$quorumType = $meeting['agency_quorum_type'] ?? 'count';
+$quorumType = $quorumType === 'percent' ? 'percent' : 'count';
+$quorumPercent = isset($meeting['agency_quorum_percent']) ? (int)$meeting['agency_quorum_percent'] : 0;
+$participantUsernames = [];
+foreach ($participants as $participant) {
+    if (!empty($participant['username'])) {
+        $participantUsernames[] = $participant['username'];
     }
+}
+$totalParticipants = count($participantUsernames);
+$requiredQuorum = $quorum;
+if ($quorumType === 'percent' && $quorumPercent > 0) {
+    $requiredQuorum = (int)ceil(($totalParticipants * $quorumPercent) / 100);
+}
+
+$attendanceStmt = $pdo->prepare('SELECT username FROM meeting_attendance WHERE meeting_id = :meeting_id AND present = 1');
+$attendanceStmt->execute([':meeting_id' => $meeting_id]);
+$attendanceRows = $attendanceStmt->fetchAll(PDO::FETCH_COLUMN);
+$attendanceSet = [];
+foreach ($attendanceRows as $username) {
+    if ($username !== null && $username !== '') {
+        $attendanceSet[$username] = true;
+    }
+}
+$attendanceCount = count($attendanceSet);
+$hasQuorum = $requiredQuorum > 0 ? $attendanceCount >= $requiredQuorum : true;
+
+$duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
+$scheduledStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
+$meetingStart = $scheduledStart;
+if (!empty($meeting['started_at'])) {
+    $meetingStart = new DateTime($meeting['started_at']);
 }
 $meetingEnd = clone $meetingStart;
 $meetingEnd->modify("+{$duration} minutes");
@@ -66,9 +92,9 @@ if (!empty($meeting['ended_at'])) {
     }
 }
 $now = new DateTime();
-$meetingActive = $now >= $meetingStart && $now <= $meetingEnd;
-$meetingStarted = $now >= $meetingStart;
-$meetingEnded = $now > $meetingEnd;
+$meetingStarted = !empty($meeting['started_at']);
+$meetingActive = $meetingStarted && $now >= $meetingStart && $now <= $meetingEnd;
+$meetingEnded = $meetingStarted && $now > $meetingEnd;
 
 $questionsStmt = $pdo->prepare('SELECT * FROM questions WHERE meeting_id = :meeting_id ORDER BY sort_order ASC, created_at ASC');
 $questionsStmt->execute([':meeting_id' => $meeting_id]);
@@ -566,6 +592,42 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
             color: #1e40af;
             border-color: rgba(30,64,175,0.25);
         }
+        .status-action-btn:disabled{
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .attendance-grid{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .attendance-item{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: #fff;
+            font-size: 13px;
+        }
+        .attendance-item input{
+            margin: 0;
+        }
+        .quorum-summary{
+            margin-top: 10px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+        .quorum-ok{
+            color: #166534;
+            font-weight: 600;
+        }
+        .quorum-bad{
+            color: #991b1b;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -648,8 +710,8 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
                             <?php elseif (!$meetingStarted): ?>
                                 <form action="update_meeting_time.php" method="POST">
                                     <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
-                                    <input type="hidden" name="action_type" value="start_early">
-                                    <button type="submit" class="status-action-btn extend" onclick="return confirm('Да започнем заседанието сега?')">Започни сега</button>
+                                    <input type="hidden" name="action_type" value="start_now">
+                                    <button type="submit" class="status-action-btn extend" <?php echo !$hasQuorum ? 'disabled' : ''; ?> onclick="return confirm('Да започнем заседанието сега?')">Започни сега</button>
                                 </form>
                             <?php endif; ?>
                         </div>
@@ -657,7 +719,64 @@ $recurringLabel = isset($meeting['recurring']) && isset($recurringMap[$meeting['
                 <?php endif; ?>
             </div>
 
-            <div class="section">
+                        <div class="section">
+                <h2>Проверка на кворум</h2>
+                <?php if ($canManageQuestions && !$meetingStarted): ?>
+                    <p class="status-meta">Отбележете кои са се включили в заседанието и запазете проверката.</p>
+                    <form action="save_meeting_attendance.php" method="POST">
+                        <input type="hidden" name="meeting_id" value="<?php echo htmlspecialchars($meeting['id']); ?>">
+                        <div class="attendance-grid">
+                            <?php if (!empty($participantUsernames)): ?>
+                                <?php foreach ($participantUsernames as $username): ?>
+                                    <label class="attendance-item">
+                                        <input type="checkbox" name="attendees[]" value="<?php echo htmlspecialchars($username); ?>" <?php echo isset($attendanceSet[$username]) ? 'checked' : ''; ?>>
+                                        <span><?php echo htmlspecialchars($username); ?></span>
+                                    </label>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <span class="status-meta">Няма участници за този орган.</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="quorum-summary">
+                            <?php if ($requiredQuorum > 0): ?>
+                                <?php if ($quorumType === 'percent' && $quorumPercent > 0): ?>
+                                    Изискван: <?php echo $quorumPercent; ?>% (минимум <?php echo $requiredQuorum; ?> от <?php echo $totalParticipants; ?>) · Отбелязани: <?php echo $attendanceCount; ?>
+                                <?php else: ?>
+                                    Изискван: <?php echo $requiredQuorum; ?> · Отбелязани: <?php echo $attendanceCount; ?>
+                                <?php endif; ?>
+                                <?php if ($hasQuorum): ?>
+                                    <span class="quorum-ok">· Има кворум</span>
+                                <?php else: ?>
+                                    <span class="quorum-bad">· Няма кворум</span>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                Кворумът не е зададен.
+                            <?php endif; ?>
+                        </div>
+                        <button type="submit" class="submit-btn">Запази проверката</button>
+                    </form>
+                <?php else: ?>
+                    <p class="status-meta">Проверката за кворум се прави преди стартиране на заседанието.</p>
+                    <div class="quorum-summary">
+                        <?php if ($requiredQuorum > 0): ?>
+                            <?php if ($quorumType === 'percent' && $quorumPercent > 0): ?>
+                                Изискван: <?php echo $quorumPercent; ?>% (минимум <?php echo $requiredQuorum; ?> от <?php echo $totalParticipants; ?>) · Отбелязани: <?php echo $attendanceCount; ?>
+                            <?php else: ?>
+                                Изискван: <?php echo $requiredQuorum; ?> · Отбелязани: <?php echo $attendanceCount; ?>
+                            <?php endif; ?>
+                            <?php if ($hasQuorum): ?>
+                                <span class="quorum-ok">· Има кворум</span>
+                            <?php else: ?>
+                                <span class="quorum-bad">· Няма кворум</span>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            Кворумът не е зададен.
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+<div class="section">
                 <h2>Коментари / Протокол</h2>
                 <?php if (!empty($meeting['comments'])): ?>
                     <p class="question-desc"><?php echo htmlspecialchars($meeting['comments']); ?></p>

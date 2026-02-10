@@ -85,12 +85,10 @@ if (!$targetStmt->fetchColumn()) {
 }
 
 $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
-$meetingStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
+$scheduledStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
+$meetingStart = $scheduledStart;
 if (!empty($meeting['started_at'])) {
-    $overrideStart = new DateTime($meeting['started_at']);
-    if ($overrideStart < $meetingStart) {
-        $meetingStart = $overrideStart;
-    }
+    $meetingStart = new DateTime($meeting['started_at']);
 }
 $meetingEnd = clone $meetingStart;
 $meetingEnd->modify("+{$duration} minutes");
@@ -101,8 +99,10 @@ if (!empty($meeting['ended_at'])) {
     }
 }
 $now = new DateTime();
+$meetingStarted = !empty($meeting['started_at']);
 
-if ($now < $meetingStart || $now > $meetingEnd) {
+
+if (!$meetingStarted || $now < $meetingStart || $now > $meetingEnd) {
     header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Гласуването е позволено само по време на заседанието');
     exit();
 }

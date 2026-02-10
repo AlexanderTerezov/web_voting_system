@@ -14,7 +14,7 @@ require_once __DIR__ . '/db.php';
 $pdo = getDb();
 
 $meetingStmt = $pdo->prepare(
-    'SELECT m.*, a.name AS agency_name, a.quorum AS agency_quorum
+    'SELECT m.*, a.name AS agency_name, a.quorum AS agency_quorum, a.quorum_type AS agency_quorum_type, a.quorum_percent AS agency_quorum_percent
      FROM meetings m
      JOIN agencies a ON a.id = m.agency_id
      WHERE m.id = :id'
@@ -43,12 +43,10 @@ if (!$hasAccess) {
 }
 
 $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
-$meetingStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
+$scheduledStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
+$meetingStart = $scheduledStart;
 if (!empty($meeting['started_at'])) {
-    $overrideStart = new DateTime($meeting['started_at']);
-    if ($overrideStart < $meetingStart) {
-        $meetingStart = $overrideStart;
-    }
+    $meetingStart = new DateTime($meeting['started_at']);
 }
 $meetingEnd = clone $meetingStart;
 $meetingEnd->modify("+{$duration} minutes");
@@ -66,10 +64,28 @@ if ($now <= $meetingEnd) {
 }
 
 $quorum = isset($meeting['agency_quorum']) ? (int)$meeting['agency_quorum'] : 0;
+$quorumType = $meeting['agency_quorum_type'] ?? 'count';
+$quorumType = $quorumType === 'percent' ? 'percent' : 'count';
+$quorumPercent = isset($meeting['agency_quorum_percent']) ? (int)$meeting['agency_quorum_percent'] : 0;
 $participantUsernames = [];
 foreach ($participants as $participant) {
     if (!empty($participant['username'])) {
         $participantUsernames[] = $participant['username'];
+    }
+}
+$totalParticipants = count($participantUsernames);
+$requiredQuorum = $quorum;
+if ($quorumType === 'percent' && $quorumPercent > 0) {
+    $requiredQuorum = (int)ceil(($totalParticipants * $quorumPercent) / 100);
+}
+
+$attendanceStmt = $pdo->prepare('SELECT username FROM meeting_attendance WHERE meeting_id = :meeting_id AND present = 1');
+$attendanceStmt->execute([':meeting_id' => $meeting_id]);
+$attendanceRows = $attendanceStmt->fetchAll(PDO::FETCH_COLUMN);
+$attendanceSet = [];
+foreach ($attendanceRows as $username) {
+    if ($username !== null && $username !== '') {
+        $attendanceSet[$username] = true;
     }
 }
 
@@ -97,27 +113,36 @@ foreach ($questions as &$question) {
     $question['statements'] = $statementsByQuestion[$question['id']] ?? [];
 }
 unset($question);
-$attendance = [];
-foreach ($questions as $question) {
-    $votes = isset($question['votes']) && is_array($question['votes']) ? $question['votes'] : [];
-    foreach ($votes as $user => $voteValue) {
-        if ($user !== '') {
-            $attendance[$user] = true;
+$attendees = [];
+$absent = [];
+if (!empty($attendanceSet)) {
+    foreach ($participantUsernames as $username) {
+        if (isset($attendanceSet[$username])) {
+            $attendees[] = $username;
+        } else {
+            $absent[] = $username;
+        }
+    }
+} else {
+    $attendance = [];
+    foreach ($questions as $question) {
+        $votes = isset($question['votes']) && is_array($question['votes']) ? $question['votes'] : [];
+        foreach ($votes as $user => $voteValue) {
+            if ($user !== '') {
+                $attendance[$user] = true;
+            }
+        }
+    }
+    foreach ($participantUsernames as $username) {
+        if (isset($attendance[$username])) {
+            $attendees[] = $username;
+        } else {
+            $absent[] = $username;
         }
     }
 }
-
-$attendees = [];
-$absent = [];
-foreach ($participantUsernames as $username) {
-    if (isset($attendance[$username])) {
-        $attendees[] = $username;
-    } else {
-        $absent[] = $username;
-    }
-}
 $attendanceCount = count($attendees);
-$hasQuorum = $quorum > 0 ? $attendanceCount >= $quorum : true;
+$hasQuorum = $requiredQuorum > 0 ? $attendanceCount >= $requiredQuorum : true;
 
 $autoPrint = isset($_GET['print']) && $_GET['print'] === '1';
 ?>
@@ -256,10 +281,15 @@ $autoPrint = isset($_GET['print']) && $_GET['print'] === '1';
             <div style="margin-top: 12px;">
                 <div class="label">Кворум</div>
                 <div class="value">
-                    <?php if ($quorum > 0): ?>
-                        Изискван: <?php echo $quorum; ?> · Присъствали: <?php echo $attendanceCount; ?>
+                    <?php if ($requiredQuorum > 0): ?>
+                        <?php if ($quorumType === 'percent' && $quorumPercent > 0): ?>
+                            Изискван: <?php echo $quorumPercent; ?>% &middot; Присъствали: <?php echo $attendanceCount; ?> (минимум <?php echo $requiredQuorum; ?> от <?php echo $totalParticipants; ?>)
+                        <?php else: ?>
+                            Изискван: <?php echo $requiredQuorum; ?> &middot; Присъствали: <?php echo $attendanceCount; ?>
+                        <?php endif; ?>
+                        
                         <?php if (!$hasQuorum): ?>
-                            <span class="muted"> · Няма кворум</span>
+                            <span class="muted"> Няма кворум</span>
                         <?php endif; ?>
                     <?php else: ?>
                         <span class="muted">Не е зададен</span>

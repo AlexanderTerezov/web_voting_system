@@ -20,6 +20,11 @@ if (!$agency) {
     exit();
 }
 
+$quorumType = $agency['quorum_type'] ?? 'count';
+$quorumType = $quorumType === 'percent' ? 'percent' : 'count';
+$quorumCount = isset($agency['quorum']) ? (int)$agency['quorum'] : 0;
+$quorumPercent = isset($agency['quorum_percent']) ? (int)$agency['quorum_percent'] : 0;
+
 $participantsStmt = $pdo->prepare('SELECT ap.username, ap.role, u.email FROM agency_participants ap LEFT JOIN users u ON u.username = ap.username WHERE ap.agency_id = :id');
 $participantsStmt->execute([':id' => $agency_id]);
 $agency['participants'] = $participantsStmt->fetchAll();
@@ -195,8 +200,19 @@ $agency['participants'] = $participantsStmt->fetchAll();
                 </div>
                 
                 <div class="form-group">
-                    <label for="quorum">Кворум</label>
-                    <input type="number" id="quorum" name="quorum" min="1" value="<?php echo htmlspecialchars($agency['quorum']); ?>" required>
+                    <label for="quorum_type">Кворум</label>
+                    <select id="quorum_type" name="quorum_type">
+                        <option value="count" <?php echo $quorumType === 'count' ? 'selected' : ''; ?>>Брой присъстващи</option>
+                        <option value="percent" <?php echo $quorumType === 'percent' ? 'selected' : ''; ?>>Процент от всички</option>
+                    </select>
+                </div>
+                <div class="form-group" id="quorum_count_group">
+                    <label for="quorum_count">Минимален брой</label>
+                    <input type="number" id="quorum_count" name="quorum_count" min="1" value="<?php echo htmlspecialchars($quorumCount); ?>">
+                </div>
+                <div class="form-group" id="quorum_percent_group">
+                    <label for="quorum_percent">Процент от всички участници</label>
+                    <input type="number" id="quorum_percent" name="quorum_percent" min="1" max="100" step="1" value="<?php echo htmlspecialchars($quorumPercent); ?>">
                 </div>
                 
                 <div class="form-group">
@@ -276,6 +292,38 @@ $agency['participants'] = $participantsStmt->fetchAll();
                 alert('\u041d\u0443\u0436\u0435\u043d \u0435 \u043f\u043e\u043d\u0435 \u0435\u0434\u0438\u043d \u0443\u0447\u0430\u0441\u0442\u043d\u0438\u043a');
             }
         }
+
+        function toggleQuorumInputs() {
+            const typeSelect = document.getElementById('quorum_type');
+            if (!typeSelect) {
+                return;
+            }
+            const isPercent = typeSelect.value === 'percent';
+            const countGroup = document.getElementById('quorum_count_group');
+            const percentGroup = document.getElementById('quorum_percent_group');
+            const countInput = document.getElementById('quorum_count');
+            const percentInput = document.getElementById('quorum_percent');
+            if (countGroup) {
+                countGroup.style.display = isPercent ? 'none' : 'block';
+            }
+            if (percentGroup) {
+                percentGroup.style.display = isPercent ? 'block' : 'none';
+            }
+            if (countInput) {
+                countInput.required = !isPercent;
+                countInput.disabled = isPercent;
+            }
+            if (percentInput) {
+                percentInput.required = isPercent;
+                percentInput.disabled = !isPercent;
+            }
+        }
+
+        const quorumTypeSelect = document.getElementById('quorum_type');
+        if (quorumTypeSelect) {
+            quorumTypeSelect.addEventListener('change', toggleQuorumInputs);
+        }
+        toggleQuorumInputs();
     </script>
 </body>
 </html>

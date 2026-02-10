@@ -11,11 +11,13 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
-$agency_name = trim($_POST['agency_name']);
-$quorum = intval($_POST['quorum']);
+$agency_name = trim($_POST['agency_name'] ?? '');
+$quorumType = $_POST['quorum_type'] ?? 'count';
+$quorumCount = isset($_POST['quorum_count']) ? intval($_POST['quorum_count']) : 0;
+$quorumPercent = isset($_POST['quorum_percent']) ? intval($_POST['quorum_percent']) : 0;
 $participantsInput = $_POST['participants'] ?? [];
 
-if (empty($agency_name) || $quorum < 1 || empty($participantsInput)) {
+if (empty($agency_name) || empty($participantsInput)) {
     header('Location: dashboard.php?error=Всички полета са задължителни');
     exit();
 }
@@ -23,6 +25,22 @@ if (empty($agency_name) || $quorum < 1 || empty($participantsInput)) {
 if (!is_array($participantsInput)) {
     header('Location: dashboard.php?error=Невалидни данни за участници');
     exit();
+}
+
+$quorumType = $quorumType === 'percent' ? 'percent' : 'count';
+if ($quorumType === 'percent') {
+    if ($quorumPercent < 1 || $quorumPercent > 100) {
+        header('Location: dashboard.php?error=' . urlencode('Невалиден кворум'));
+        exit();
+    }
+    $quorum = 0;
+} else {
+    if ($quorumCount < 1) {
+        header('Location: dashboard.php?error=' . urlencode('Невалиден кворум'));
+        exit();
+    }
+    $quorum = $quorumCount;
+    $quorumPercent = null;
 }
 
 require_once __DIR__ . '/db.php';
@@ -103,10 +121,12 @@ if (empty($finalParticipants)) {
 $default_questions = trim($_POST['default_questions'] ?? '');
 
 $pdo->beginTransaction();
-$insertAgency = $pdo->prepare('INSERT INTO agencies (name, quorum, default_questions, created_at, created_by) VALUES (:name, :quorum, :default_questions, :created_at, :created_by)');
+$insertAgency = $pdo->prepare('INSERT INTO agencies (name, quorum, quorum_type, quorum_percent, default_questions, created_at, created_by) VALUES (:name, :quorum, :quorum_type, :quorum_percent, :default_questions, :created_at, :created_by)');
 $insertAgency->execute([
     ':name' => $agency_name,
     ':quorum' => $quorum,
+    ':quorum_type' => $quorumType,
+    ':quorum_percent' => $quorumPercent,
     ':default_questions' => $default_questions,
     ':created_at' => date('Y-m-d H:i:s'),
     ':created_by' => $_SESSION['user']

@@ -12,12 +12,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $agency_id = intval($_POST['agency_id']);
-$agency_name = trim($_POST['agency_name']);
-$quorum = intval($_POST['quorum']);
+$agency_name = trim($_POST['agency_name'] ?? '');
+$quorumType = $_POST['quorum_type'] ?? 'count';
+$quorumCount = isset($_POST['quorum_count']) ? intval($_POST['quorum_count']) : 0;
+$quorumPercent = isset($_POST['quorum_percent']) ? intval($_POST['quorum_percent']) : 0;
 $participantsInput = $_POST['participants'] ?? [];
 
 
-if (empty($agency_name) || $quorum < 1 || empty($participantsInput)) {
+if (empty($agency_name) || empty($participantsInput)) {
     header('Location: edit_agency.php?id=' . $agency_id . '&error=Всички полета са задължителни');
     exit();
 }
@@ -25,6 +27,22 @@ if (empty($agency_name) || $quorum < 1 || empty($participantsInput)) {
 if (!is_array($participantsInput)) {
     header('Location: edit_agency.php?id=' . $agency_id . '&error=Невалидни данни за участници');
     exit();
+}
+
+$quorumType = $quorumType === 'percent' ? 'percent' : 'count';
+if ($quorumType === 'percent') {
+    if ($quorumPercent < 1 || $quorumPercent > 100) {
+        header('Location: edit_agency.php?id=' . $agency_id . '&error=' . urlencode('Невалиден кворум'));
+        exit();
+    }
+    $quorum = 0;
+} else {
+    if ($quorumCount < 1) {
+        header('Location: edit_agency.php?id=' . $agency_id . '&error=' . urlencode('Невалиден кворум'));
+        exit();
+    }
+    $quorum = $quorumCount;
+    $quorumPercent = null;
 }
 
 require_once __DIR__ . '/db.php';
@@ -109,10 +127,12 @@ if (!$agencyStmt->fetchColumn()) {
 }
 
 $pdo->beginTransaction();
-$updateAgency = $pdo->prepare('UPDATE agencies SET name = :name, quorum = :quorum WHERE id = :id');
+$updateAgency = $pdo->prepare('UPDATE agencies SET name = :name, quorum = :quorum, quorum_type = :quorum_type, quorum_percent = :quorum_percent WHERE id = :id');
 $updateAgency->execute([
     ':name' => $agency_name,
     ':quorum' => $quorum,
+    ':quorum_type' => $quorumType,
+    ':quorum_percent' => $quorumPercent,
     ':id' => $agency_id
 ]);
 

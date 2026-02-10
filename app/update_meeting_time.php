@@ -22,10 +22,13 @@ if ($meeting_id === '' || $action === '') {
     exit();
 }
 
+$action = $action === 'start_early' ? 'start_now' : $action;
+
+
 require_once __DIR__ . '/db.php';
 $pdo = getDb();
 
-$meetingStmt = $pdo->prepare('SELECT * FROM meetings WHERE id = :id');
+$meetingStmt = $pdo->prepare('SELECT m.*, a.quorum, a.quorum_type, a.quorum_percent FROM meetings m JOIN agencies a ON a.id = m.agency_id WHERE m.id = :id');
 $meetingStmt->execute([':id' => $meeting_id]);
 $meeting = $meetingStmt->fetch();
 
@@ -55,13 +58,23 @@ if (!$canManage) {
     exit();
 }
 
+$quorum = isset($meeting['quorum']) ? (int)$meeting['quorum'] : 0;
+$quorumType = $meeting['quorum_type'] ?? 'count';
+$quorumType = $quorumType === 'percent' ? 'percent' : 'count';
+$quorumPercent = isset($meeting['quorum_percent']) ? (int)$meeting['quorum_percent'] : 0;
+$participantsCountStmt = $pdo->prepare('SELECT COUNT(*) FROM agency_participants WHERE agency_id = :agency_id');
+$participantsCountStmt->execute([':agency_id' => $meeting['agency_id']]);
+$totalParticipants = (int)$participantsCountStmt->fetchColumn();
+$requiredQuorum = $quorum;
+if ($quorumType === 'percent' && $quorumPercent > 0) {
+    $requiredQuorum = (int)ceil(($totalParticipants * $quorumPercent) / 100);
+}
+
 $duration = isset($meeting['duration']) ? intval($meeting['duration']) : 60;
-$meetingStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
+$scheduledStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
+$meetingStart = $scheduledStart;
 if (!empty($meeting['started_at'])) {
-    $overrideStart = new DateTime($meeting['started_at']);
-    if ($overrideStart < $meetingStart) {
-        $meetingStart = $overrideStart;
-    }
+    $meetingStart = new DateTime($meeting['started_at']);
 }
 $meetingEnd = clone $meetingStart;
 $meetingEnd->modify("+{$duration} minutes");
@@ -72,9 +85,18 @@ if (!empty($meeting['ended_at'])) {
     }
 }
 $now = new DateTime();
+$meetingStarted = !empty($meeting['started_at']);
+
+$attendanceCount = 0;
+if ($action === 'start_now') {
+    $attendanceStmt = $pdo->prepare('SELECT COUNT(*) FROM meeting_attendance WHERE meeting_id = :meeting_id AND present = 1');
+    $attendanceStmt->execute([':meeting_id' => $meeting_id]);
+    $attendanceCount = (int)$attendanceStmt->fetchColumn();
+}
+
 
 if ($action === 'end_early') {
-    if (!($now >= $meetingStart && $now <= $meetingEnd)) {
+    if (!$meetingStarted || !($now >= $meetingStart && $now <= $meetingEnd)) {
         header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Заседанието не е активно');
         exit();
     }
@@ -88,7 +110,7 @@ if ($action === 'end_early') {
         header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Невалидно удължаване');
         exit();
     }
-    if ($now > $meetingEnd) {
+    if (!$meetingStarted || $now > $meetingEnd) {
         header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Заседанието вече е приключило');
         exit();
     }
@@ -97,10 +119,13 @@ if ($action === 'end_early') {
         ':duration' => $duration + $extendMinutes,
         ':id' => $meeting_id
     ]);
-} elseif ($action === 'start_early') {
-    $scheduledStart = new DateTime(($meeting['date'] ?? '') . ' ' . ($meeting['time'] ?? '00:00'));
-    if ($now >= $scheduledStart) {
+} elseif ($action === 'start_now') {
+    if ($meetingStarted) {
         header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Заседанието вече е започнало');
+        exit();
+    }
+    if ($requiredQuorum > 0 && $attendanceCount < $requiredQuorum) {
+        header('Location: view_meeting.php?id=' . urlencode($meeting_id) . '&error=Няма кворум');
         exit();
     }
     $updateStmt = $pdo->prepare('UPDATE meetings SET started_at = :started_at WHERE id = :id');
